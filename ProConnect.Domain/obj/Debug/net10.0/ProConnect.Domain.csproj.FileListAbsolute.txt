@@ -1,0 +1,11 @@
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Domain\bin\Debug\net10.0\ProConnect.Domain.deps.json
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Domain\bin\Debug\net10.0\ProConnect.Domain.dll
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Domain\bin\Debug\net10.0\ProConnect.Domain.pdb
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Domain\obj\Debug\net10.0\ProConnect.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Domain\obj\Debug\net10.0\ProConnect.Domain.AssemblyInfoInputs.cache
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Domain\obj\Debug\net10.0\ProConnect.Domain.AssemblyInfo.cs
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Domain\obj\Debug\net10.0\ProConnect.Domain.csproj.CoreCompileInputs.cache
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Domain\obj\Debug\net10.0\ProConnect.Domain.dll
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Domain\obj\Debug\net10.0\refint\ProConnect.Domain.dll
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Domain\obj\Debug\net10.0\ProConnect.Domain.pdb
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Domain\obj\Debug\net10.0\ref\ProConnect.Domain.dll

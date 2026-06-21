@@ -1,0 +1,15 @@
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\bin\Debug\net10.0\ProConnect.Application.deps.json
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\bin\Debug\net10.0\ProConnect.Application.dll
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\bin\Debug\net10.0\ProConnect.Application.pdb
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\bin\Debug\net10.0\ProConnect.Domain.dll
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\bin\Debug\net10.0\ProConnect.Domain.pdb
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\obj\Debug\net10.0\ProConnect.Application.csproj.AssemblyReference.cache
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\obj\Debug\net10.0\ProConnect.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\obj\Debug\net10.0\ProConnect.Application.AssemblyInfoInputs.cache
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\obj\Debug\net10.0\ProConnect.Application.AssemblyInfo.cs
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\obj\Debug\net10.0\ProConnect.Application.csproj.CoreCompileInputs.cache
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\obj\Debug\net10.0\ProConne.FFC4FAFD.Up2Date
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\obj\Debug\net10.0\ProConnect.Application.dll
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\obj\Debug\net10.0\refint\ProConnect.Application.dll
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\obj\Debug\net10.0\ProConnect.Application.pdb
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\obj\Debug\net10.0\ref\ProConnect.Application.dll

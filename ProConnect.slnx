@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="ProConnect.Application/ProConnect.Application.csproj" />
+  <Project Path="ProConnect.Domain/ProConnect.Domain.csproj" />
+  <Project Path="ProConnect.Infrastructure/ProConnect.Infrastructure.csproj" />
+  <Project Path="ProConnect.WebAPI/ProConnect.WebAPI.csproj" />
+</Solution>
