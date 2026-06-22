@@ -1,3 +1,9 @@
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\obj\Debug\net10.0\ProConnect.Infrastructure.csproj.AssemblyReference.cache
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\obj\Debug\net10.0\ProConnect.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\obj\Debug\net10.0\ProConnect.Infrastructure.AssemblyInfoInputs.cache
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\obj\Debug\net10.0\ProConnect.Infrastructure.AssemblyInfo.cs
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\obj\Debug\net10.0\ProConnect.Infrastructure.csproj.CoreCompileInputs.cache
+C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\obj\Debug\net10.0\ProConnect.Infrastructure.sourcelink.json
 C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\bin\Debug\net10.0\ProConnect.Infrastructure.deps.json
 C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\bin\Debug\net10.0\ProConnect.Infrastructure.dll
 C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\bin\Debug\net10.0\ProConnect.Infrastructure.pdb
@@ -5,11 +11,6 @@ C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\bin\Debug\ne
 C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\bin\Debug\net10.0\ProConnect.Domain.dll
 C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\bin\Debug\net10.0\ProConnect.Application.pdb
 C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\bin\Debug\net10.0\ProConnect.Domain.pdb
-C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\obj\Debug\net10.0\ProConnect.Infrastructure.csproj.AssemblyReference.cache
-C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\obj\Debug\net10.0\ProConnect.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\obj\Debug\net10.0\ProConnect.Infrastructure.AssemblyInfoInputs.cache
-C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\obj\Debug\net10.0\ProConnect.Infrastructure.AssemblyInfo.cs
-C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\obj\Debug\net10.0\ProConnect.Infrastructure.csproj.CoreCompileInputs.cache
 C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\obj\Debug\net10.0\ProConne.11FE8AFB.Up2Date
 C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\obj\Debug\net10.0\ProConnect.Infrastructure.dll
 C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Infrastructure\obj\Debug\net10.0\refint\ProConnect.Infrastructure.dll
