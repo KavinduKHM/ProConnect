@@ -1,0 +1,48 @@
+.create-container {
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+mat-card {
+  width: 100%;
+  padding: 24px;
+}
+
+mat-card-header {
+  margin-bottom: 16px;
+}
+
+.full-width {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.budget-row {
+  display: flex;
+  gap: 16px;
+}
+
+.half-width {
+  flex: 1;
+}
+
+.error-message {
+  color: #f44336;
+  font-size: 14px;
+  margin: 8px 0;
+  text-align: center;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+mat-spinner {
+  margin: 0 auto;
+}

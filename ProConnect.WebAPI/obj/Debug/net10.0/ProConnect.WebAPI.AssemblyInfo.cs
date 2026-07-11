@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ProConnect.WebAPI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a6c0125a991c1b88c47688d6d632f8862e9db7de")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5c96fc48d40d33220f9761de08fcacb1339ee339")]
 [assembly: System.Reflection.AssemblyProductAttribute("ProConnect.WebAPI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ProConnect.WebAPI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

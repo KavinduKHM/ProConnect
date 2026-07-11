@@ -1,0 +1,126 @@
+<div *ngIf="isLoading" class="loading-spinner">
+  <mat-spinner diameter="40"></mat-spinner>
+</div>
+
+<div *ngIf="errorMessage" class="error-message">
+  {{ errorMessage }}
+  <button mat-button routerLink="/jobs">Back to Jobs</button>
+</div>
+
+<div *ngIf="job && !isLoading" class="detail-container">
+  <div class="back-button">
+    <button mat-icon-button routerLink="/jobs">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+    <span>Back to Jobs</span>
+  </div>
+
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>{{ job.title }}</mat-card-title>
+      <mat-card-subtitle>
+        {{ job.serviceCategoryName }} • Posted by {{ job.customerName }}
+      </mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <div class="job-meta">
+        <div class="meta-item">
+          <mat-icon>attach_money</mat-icon>
+          <span>${{ job.budgetMin }} - ${{ job.budgetMax }}</span>
+        </div>
+        <div class="meta-item">
+          <mat-icon>schedule</mat-icon>
+          <span>{{ job.preferredDate | date:'mediumDate' }}</span>
+        </div>
+        <div class="meta-item">
+          <mat-icon>location_on</mat-icon>
+          <span>{{ job.location || 'Location not specified' }}</span>
+        </div>
+        <div class="meta-item">
+          <mat-chip [color]="getStatusColor(job.status)" selected>{{ job.status }}</mat-chip>
+          <span *ngIf="job.isUrgent" class="urgent-badge">Urgent</span>
+        </div>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="description-section">
+        <h3>Description</h3>
+        <p>{{ job.description }}</p>
+      </div>
+
+      <mat-divider *ngIf="bids.length > 0"></mat-divider>
+
+      <div *ngIf="isJobOwner() && bids.length > 0" class="bids-section">
+        <h3>Bids ({{ bids.length }})</h3>
+        <div class="bid-list">
+          <div *ngFor="let bid of bids" class="bid-item">
+            <div class="bid-header">
+              <span class="vendor-name">{{ bid.vendorName }}</span>
+              <span class="vendor-company">{{ bid.vendorCompany }}</span>
+              <mat-chip [color]="bid.status === 'Pending' ? 'accent' : 'primary'" selected>
+                {{ bid.status }}
+              </mat-chip>
+            </div>
+            <div class="bid-details">
+              <span>Amount: ${{ bid.bidAmount }}</span>
+              <span>Est. Days: {{ bid.estimatedDays }}</span>
+              <span>Bid on: {{ bid.createdAt | date:'short' }}</span>
+            </div>
+            <p class="bid-message" *ngIf="bid.proposalMessage">{{ bid.proposalMessage }}</p>
+          </div>
+        </div>
+      </div>
+    </mat-card-content>
+
+    <mat-card-actions *ngIf="canPlaceBid()">
+      <button mat-raised-button color="primary" (click)="toggleBidForm()">
+        <mat-icon>gavel</mat-icon> Place a Bid
+      </button>
+    </mat-card-actions>
+  </mat-card>
+
+  <!-- Bid Form -->
+  <mat-card *ngIf="showBidForm" class="bid-form-card">
+    <mat-card-header>
+      <mat-card-title>Place Your Bid</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <form [formGroup]="bidForm" (ngSubmit)="submitBid()">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Your Bid Amount ($)</mat-label>
+          <input matInput type="number" formControlName="bidAmount" min="1">
+          <mat-error *ngIf="bidForm.get('bidAmount')?.hasError('required')">Bid amount is required</mat-error>
+          <mat-error *ngIf="bidForm.get('bidAmount')?.hasError('min')">Amount must be at least $1</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Proposal Message</mat-label>
+          <textarea matInput formControlName="proposalMessage" rows="3" placeholder="Explain why you're the best fit..."></textarea>
+          <mat-error *ngIf="bidForm.get('proposalMessage')?.hasError('required')">Message is required</mat-error>
+          <mat-error *ngIf="bidForm.get('proposalMessage')?.hasError('minlength')">Message must be at least 10 characters</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Estimated Days</mat-label>
+          <input matInput type="number" formControlName="estimatedDays" min="1">
+          <mat-error *ngIf="bidForm.get('estimatedDays')?.hasError('required')">Estimated days are required</mat-error>
+          <mat-error *ngIf="bidForm.get('estimatedDays')?.hasError('min')">Must be at least 1 day</mat-error>
+        </mat-form-field>
+
+        <div *ngIf="errorMessage" class="error-message">
+          {{ errorMessage }}
+        </div>
+
+        <div class="bid-actions">
+          <button mat-button type="button" (click)="toggleBidForm()">Cancel</button>
+          <button mat-raised-button color="primary" type="submit" [disabled]="isBidding">
+            <mat-spinner diameter="20" *ngIf="isBidding"></mat-spinner>
+            <span *ngIf="!isBidding">Submit Bid</span>
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>

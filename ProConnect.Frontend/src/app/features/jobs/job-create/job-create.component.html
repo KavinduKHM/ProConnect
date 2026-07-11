@@ -1,0 +1,81 @@
+<div class="create-container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Post a New Job</mat-card-title>
+      <mat-card-subtitle>Describe what you need, and vendors will reach out</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <form [formGroup]="jobForm" (ngSubmit)="onSubmit()">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Job Title</mat-label>
+          <input matInput formControlName="title" placeholder="e.g., Fix leaking pipe">
+          <mat-error *ngIf="jobForm.get('title')?.hasError('required')">Title is required</mat-error>
+          <mat-error *ngIf="jobForm.get('title')?.hasError('minlength')">Title must be at least 5 characters</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Description</mat-label>
+          <textarea matInput formControlName="description" rows="4" placeholder="Detailed description of the job..."></textarea>
+          <mat-error *ngIf="jobForm.get('description')?.hasError('required')">Description is required</mat-error>
+          <mat-error *ngIf="jobForm.get('description')?.hasError('minlength')">Description must be at least 20 characters</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Service Category</mat-label>
+          <mat-select formControlName="serviceCategoryId">
+            <mat-option *ngFor="let cat of categories" [value]="cat.id">
+              {{ cat.name }}
+            </mat-option>
+          </mat-select>
+          <mat-error *ngIf="jobForm.get('serviceCategoryId')?.hasError('required')">Category is required</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Location</mat-label>
+          <input matInput formControlName="location" placeholder="e.g., 123 Main St, City">
+        </mat-form-field>
+
+        <div class="budget-row">
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Budget Min ($)</mat-label>
+            <input matInput type="number" formControlName="budgetMin" min="1">
+            <mat-error *ngIf="jobForm.get('budgetMin')?.hasError('required')">Required</mat-error>
+            <mat-error *ngIf="jobForm.get('budgetMin')?.hasError('min')">Must be at least 1</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Budget Max ($)</mat-label>
+            <input matInput type="number" formControlName="budgetMax" min="1">
+            <mat-error *ngIf="jobForm.get('budgetMax')?.hasError('required')">Required</mat-error>
+            <mat-error *ngIf="jobForm.get('budgetMax')?.hasError('min')">Must be at least 1</mat-error>
+          </mat-form-field>
+        </div>
+        <div *ngIf="jobForm.hasError('budgetInvalid')" class="error-message">
+          Maximum budget must be greater than minimum budget.
+        </div>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Preferred Date</mat-label>
+          <input matInput [matDatepicker]="picker" formControlName="preferredDate">
+          <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-datepicker #picker></mat-datepicker>
+          <mat-error *ngIf="jobForm.get('preferredDate')?.hasError('required')">Preferred date is required</mat-error>
+        </mat-form-field>
+
+        <mat-checkbox formControlName="isUrgent">This is urgent</mat-checkbox>
+
+        <div *ngIf="errorMessage" class="error-message">
+          {{ errorMessage }}
+        </div>
+
+        <div class="actions">
+          <button mat-button type="button" routerLink="/jobs">Cancel</button>
+          <button mat-raised-button color="primary" type="submit" [disabled]="isLoading">
+            <mat-spinner diameter="20" *ngIf="isLoading"></mat-spinner>
+            <span *ngIf="!isLoading">Post Job</span>
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>
