@@ -1,0 +1,22 @@
+<mat-toolbar color="primary">
+  <span routerLink="/" style="cursor:pointer;">ProConnect</span>
+  <span class="spacer"></span>
+
+  <!-- Show different buttons based on auth state -->
+  <ng-container *ngIf="auth.isAuthenticated(); else unauthenticated">
+    <button mat-button routerLink="/jobs">Jobs</button>
+    <button mat-button *ngIf="auth.hasRole('Customer')" routerLink="/jobs/create">Post a Job</button>
+    <button mat-button [matMenuTriggerFor]="userMenu">
+      <mat-icon>account_circle</mat-icon>
+      {{ auth.getCurrentUser()?.fullName }}
+    </button>
+    <mat-menu #userMenu="matMenu">
+      <button mat-menu-item (click)="logout()">Logout</button>
+    </mat-menu>
+  </ng-container>
+
+  <ng-template #unauthenticated>
+    <button mat-button routerLink="/login">Login</button>
+    <button mat-button routerLink="/register">Register</button>
+  </ng-template>
+</mat-toolbar>
