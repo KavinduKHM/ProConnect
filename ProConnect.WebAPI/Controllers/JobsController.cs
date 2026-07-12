@@ -6,6 +6,8 @@ using ProConnect.Domain.Entities;
 using ProConnect.Infrastructure.Data;
 using ProConnect.WebAPI.Dtos;
 using System.Security.Claims;
+using Microsoft.AspNetCore.SignalR;
+using ProConnect.WebAPI.Hubs;
 
 namespace ProConnect.WebAPI.Controllers
 {
@@ -16,11 +18,13 @@ namespace ProConnect.WebAPI.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IHubContext<NotificationHub> _hubContext;
 
-        public JobsController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public JobsController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IHubContext<NotificationHub> hubContext)
         {
             _context = context;
             _userManager = userManager;
+            _hubContext = hubContext;
         }
 
         // POST: api/jobs
@@ -34,7 +38,9 @@ namespace ProConnect.WebAPI.Controllers
                 return Unauthorized();
 
             // Find the customer profile
-            var customer = await _context.CustomerProfiles.FirstOrDefaultAsync(c => c.UserId == userId);
+            var customer = await _context.CustomerProfiles
+                .Include(c => c.User)
+                .FirstOrDefaultAsync(c => c.UserId == userId);
             if (customer == null)
                 return BadRequest("Customer profile not found. Please complete your registration.");
 
@@ -61,6 +67,39 @@ namespace ProConnect.WebAPI.Controllers
 
             _context.Jobs.Add(job);
             await _context.SaveChangesAsync();
+
+            var notificationTitle = "New Job Posted";
+            var notificationMessage = $"New job posted: {job.Title} by {customer.User?.FullName ?? "Unknown"}";
+            var notificationActionUrl = $"/jobs/{job.Id}";
+
+            var vendorUserIds = await _context.VendorProfiles.Select(v => v.UserId).ToListAsync();
+            var notifications = vendorUserIds.Select(id => new Notification
+            {
+                UserId = id,
+                Title = notificationTitle,
+                Message = notificationMessage,
+                ActionUrl = notificationActionUrl,
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false
+            }).ToList();
+            _context.Notifications.AddRange(notifications);
+            await _context.SaveChangesAsync();
+
+            Console.WriteLine($"[SignalR] Broadcasting NewJobPosted for Job ID: {job.Id} to Vendors group");
+            
+            // Send the first notification DTO (all have same content except UserId)
+            var notificationDto = new NotificationDto
+            {
+                Id = notifications.FirstOrDefault()?.Id ?? 0,
+                Title = notificationTitle,
+                Message = notificationMessage,
+                ActionUrl = notificationActionUrl,
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false
+            };
+            
+            await _hubContext.Clients.Group("Vendors").SendAsync("NewNotification", notificationDto);
+            Console.WriteLine("[SignalR] Broadcast NewNotification sent");
 
             // Return the created job
             var response = await MapToJobResponse(job);
@@ -358,6 +397,49 @@ namespace ProConnect.WebAPI.Controllers
             _context.JobBids.Add(bid);
             await _context.SaveChangesAsync();
 
+            var jobWithCustomer = await _context.Jobs
+                .Include(j => j.Customer)
+                .FirstOrDefaultAsync(j => j.Id == id);
+
+            if (jobWithCustomer != null)
+            {
+                // Get the customer's UserId (the AspNetUsers Id)
+                var customerUserId = jobWithCustomer.Customer.UserId; // This is the Identity user Id
+                var vendorWithUser = await _context.VendorProfiles
+                    .Include(v => v.User)
+                    .FirstOrDefaultAsync(v => v.Id == vendor.Id);
+
+                var notification = new Notification
+                {
+                    UserId = customerUserId,
+                    Title = "New Bid Placed",
+                    Message = $"New bid on \"{jobWithCustomer.Title}\": ${bid.BidAmount} by {vendorWithUser?.User?.FullName ?? "A vendor"}",
+                    ActionUrl = $"/jobs/{jobWithCustomer.Id}",
+                    CreatedAt = DateTime.UtcNow,
+                    IsRead = false
+                };
+                _context.Notifications.Add(notification);
+                await _context.SaveChangesAsync();
+
+                Console.WriteLine($"[SignalR] Broadcasting NewNotification to Customer User ID: {customerUserId}");
+                var notificationDto = new NotificationDto
+                {
+                    Id = notification.Id,
+                    Title = notification.Title,
+                    Message = notification.Message,
+                    ActionUrl = notification.ActionUrl,
+                    CreatedAt = notification.CreatedAt,
+                    IsRead = notification.IsRead
+                };
+                await _hubContext.Clients.User(customerUserId).SendAsync("NewNotification", notificationDto);
+                Console.WriteLine("[SignalR] Broadcast NewNotification sent");
+            }
+            else 
+            {
+                Console.WriteLine("[SignalR] jobWithCustomer is null, cannot broadcast bid");
+            }
+
+
             return Ok(new { message = "Bid placed successfully.", bidId = bid.Id });
         }
 
@@ -393,8 +475,8 @@ namespace ProConnect.WebAPI.Controllers
                 ProposalMessage = b.ProposalMessage,
                 EstimatedDays = b.EstimatedDays,
                 Status = b.Status,
-                VendorName = b.Vendor.User.FullName,
-                VendorCompany = b.Vendor.CompanyName,
+                VendorName = b.Vendor?.User?.FullName ?? "Unknown",
+                VendorCompany = b.Vendor?.CompanyName ?? "Unknown",
                 CreatedAt = b.CreatedAt
             }).ToList();
 

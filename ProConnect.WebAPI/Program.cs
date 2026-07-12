@@ -6,6 +6,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using ProConnect.Domain.Entities;
 using ProConnect.Infrastructure.Data;
+using ProConnect.WebAPI.Hubs;
+using ProConnect.WebAPI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,10 +17,10 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAngularDev",
         policy =>
         {
-            policy.WithOrigins("http://localhost:4200")   // Angular dev server
+            policy.WithOrigins("http://localhost:4200")
                   .AllowAnyHeader()
                   .AllowAnyMethod()
-                  .AllowCredentials();
+                  .AllowCredentials(); // Required for SignalR
         });
 });
 
@@ -55,6 +57,16 @@ builder.Services.AddAuthentication(options =>
     };
     options.Events = new JwtBearerEvents
     {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationHub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        },
         OnChallenge = context =>
         {
             context.HandleResponse();
@@ -67,6 +79,8 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
+builder.Services.AddScoped<AiService>();
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -100,12 +114,18 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+else
+{
+    // In development the Angular app talks to the plain HTTP endpoint; redirecting
+    // would bounce its API/SignalR calls to a different origin.
+    app.UseHttpsRedirection();
+}
 
-app.UseHttpsRedirection();
 app.UseCors("AllowAngularDev");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<NotificationHub>("/notificationHub");
 
 // Seed roles and admin
 using (var scope = app.Services.CreateScope())

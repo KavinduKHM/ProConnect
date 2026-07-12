@@ -5,6 +5,25 @@
       <mat-card-subtitle>Describe what you need, and vendors will reach out</mat-card-subtitle>
     </mat-card-header>
     <mat-card-content>
+      <!-- AI Upload Section -->
+      <div class="upload-section">
+        <div class="upload-box" (click)="fileInput.click()">
+          <mat-icon>cloud_upload</mat-icon>
+          <p>Upload a photo of the problem</p>
+          <p class="hint">AI will analyze it and fill the form</p>
+          <input #fileInput type="file" accept="image/*" (change)="onFileSelected($event)" style="display:none;">
+        </div>
+        <div *ngIf="uploadedFileName" class="file-name">
+          📎 {{ uploadedFileName }}
+        </div>
+        <div *ngIf="isAnalyzing" class="analyzing-indicator">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>AI is analyzing...</span>
+        </div>
+      </div>
+
+      <mat-divider></mat-divider>
+
       <form [formGroup]="jobForm" (ngSubmit)="onSubmit()">
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Job Title</mat-label>

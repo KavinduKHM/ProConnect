@@ -414,6 +414,43 @@ namespace ProConnect.Infrastructure.Migrations
                     b.ToTable("JobBids");
                 });
 
+            modelBuilder.Entity("ProConnect.Domain.Entities.Notification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ActionUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Notifications");
+                });
+
             modelBuilder.Entity("ProConnect.Domain.Entities.Review", b =>
                 {
                     b.Property<int>("Id")
@@ -749,6 +786,17 @@ namespace ProConnect.Infrastructure.Migrations
                     b.Navigation("Job");
 
                     b.Navigation("Vendor");
+                });
+
+            modelBuilder.Entity("ProConnect.Domain.Entities.Notification", b =>
+                {
+                    b.HasOne("ProConnect.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ProConnect.Domain.Entities.Review", b =>

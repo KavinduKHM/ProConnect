@@ -1,48 +1,69 @@
 .create-container {
-  display: flex;
-  justify-content: center;
-  padding: 24px;
   max-width: 800px;
-  margin: 0 auto;
+  margin: 24px auto;
+  padding: 0 16px;
 }
 
 mat-card {
-  width: 100%;
   padding: 24px;
 }
 
-mat-card-header {
+.upload-section {
   margin-bottom: 16px;
 }
 
-.full-width {
-  width: 100%;
-  margin-bottom: 16px;
-}
-
-.budget-row {
-  display: flex;
-  gap: 16px;
-}
-
-.half-width {
-  flex: 1;
-}
-
-.error-message {
-  color: #f44336;
-  font-size: 14px;
-  margin: 8px 0;
+.upload-box {
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  padding: 24px;
   text-align: center;
+  cursor: pointer;
+  transition: border-color 0.3s, background-color 0.3s;
 }
 
-.actions {
+.upload-box:hover {
+  border-color: #3f51b5;
+  background-color: #f5f6fa;
+}
+
+.upload-box mat-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  color: #3f51b5;
+}
+
+.upload-box p {
+  margin: 8px 0 4px;
+  font-weight: 500;
+}
+
+.upload-box .hint {
+  font-size: 12px;
+  color: #888;
+  font-weight: normal;
+}
+
+.file-name {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #3f51b5;
+  background: #e8eaf6;
+  padding: 4px 12px;
+  border-radius: 16px;
+  display: inline-block;
+}
+
+.analyzing-indicator {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: 12px;
-  margin-top: 16px;
+  margin-top: 8px;
+  color: #3f51b5;
 }
 
-mat-spinner {
-  margin: 0 auto;
+mat-divider {
+  margin: 16px 0;
 }
+
+/* rest of existing styles ... */

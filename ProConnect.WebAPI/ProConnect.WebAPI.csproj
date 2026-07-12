@@ -8,7 +8,9 @@
 
   <ItemGroup>
     <!-- JWT Authentication -->
+    <PackageReference Include="Google.Cloud.AIPlatform.V1" Version="3.72.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR" Version="1.2.11" />
     
     <!-- EF Core Design Tools (for migrations) -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9">

@@ -17,7 +17,14 @@ export class AuthService {
   public currentUser$ = this.currentUserSubject.asObservable();
 
   constructor(private http: HttpClient) {
-    // Restore user from localStorage if token exists
+    // Restore user from localStorage, but only if the stored token is still valid.
+    // A stale token would otherwise let the app act as if it were logged in and
+    // every API/SignalR call would fail with 401.
+    if (this.isTokenExpired(this.getToken())) {
+      this.clearSession();
+      return;
+    }
+
     const savedUser = localStorage.getItem(this.userKey);
     if (savedUser) {
       this.currentUserSubject.next(JSON.parse(savedUser));
@@ -38,9 +45,7 @@ export class AuthService {
 
   // Logout
   logout(): void {
-    localStorage.removeItem(this.tokenKey);
-    localStorage.removeItem(this.userKey);
-    this.currentUserSubject.next(null);
+    this.clearSession();
   }
 
   // Get stored token
@@ -48,9 +53,47 @@ export class AuthService {
     return localStorage.getItem(this.tokenKey);
   }
 
-  // Check if user is authenticated
+  // Check if user is authenticated (token present AND not expired)
   isAuthenticated(): boolean {
-    return !!this.getToken();
+    const token = this.getToken();
+    if (this.isTokenExpired(token)) {
+      if (token) {
+        this.clearSession();
+      }
+      return false;
+    }
+    return true;
+  }
+
+  // Decode the JWT payload; returns null if the token is malformed
+  private decodeToken(token: string): { exp?: number } | null {
+    try {
+      const payload = token.split('.')[1];
+      const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+      return JSON.parse(json);
+    } catch {
+      return null;
+    }
+  }
+
+  // A missing, malformed or past-'exp' token counts as expired
+  private isTokenExpired(token: string | null): boolean {
+    if (!token) {
+      return true;
+    }
+    const payload = this.decodeToken(token);
+    if (!payload?.exp) {
+      return true;
+    }
+    return payload.exp * 1000 <= Date.now();
+  }
+
+  private clearSession(): void {
+    localStorage.removeItem(this.tokenKey);
+    localStorage.removeItem(this.userKey);
+    if (this.currentUserSubject.value !== null) {
+      this.currentUserSubject.next(null);
+    }
   }
 
   // Get current user (synchronous)
