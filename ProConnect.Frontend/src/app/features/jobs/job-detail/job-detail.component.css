@@ -161,3 +161,19 @@ mat-card-header {
 mat-spinner {
   margin: 0 auto;
 }
+
+.bid-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.bid-actions button {
+    font-size: 14px;
+}
+
+.bid-actions mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+}

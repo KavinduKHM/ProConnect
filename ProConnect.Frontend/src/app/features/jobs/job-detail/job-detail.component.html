@@ -56,20 +56,30 @@
         <h3>Bids ({{ bids.length }})</h3>
         <div class="bid-list">
           <div *ngFor="let bid of bids" class="bid-item">
-            <div class="bid-header">
-              <span class="vendor-name">{{ bid.vendorName }}</span>
-              <span class="vendor-company">{{ bid.vendorCompany }}</span>
-              <mat-chip [color]="bid.status === 'Pending' ? 'accent' : 'primary'" selected>
-                {{ bid.status }}
-              </mat-chip>
+                <div class="bid-header">
+                    <span class="vendor-name">{{ bid.vendorName }}</span>
+                    <span class="vendor-company">{{ bid.vendorCompany }}</span>
+                    <mat-chip [color]="bid.status === 'Pending' ? 'accent' : 'primary'" selected>
+                        {{ bid.status }}
+                    </mat-chip>
+                </div>
+                <div class="bid-details">
+                    <span>Amount: ${{ bid.bidAmount }}</span>
+                    <span>Est. Days: {{ bid.estimatedDays }}</span>
+                    <span>Bid on: {{ bid.createdAt | date:'short' }}</span>
+                </div>
+                <p class="bid-message" *ngIf="bid.proposalMessage">{{ bid.proposalMessage }}</p>
+                
+                <!-- Accept/Reject buttons (only for job owner and only if job is still open) -->
+                <div class="bid-actions" *ngIf="isJobOwner() && job?.status === 'Open' && bid.status === 'Pending'">
+                    <button mat-raised-button color="primary" (click)="acceptBid(bid.id)">
+                        <mat-icon>check_circle</mat-icon> Accept
+                    </button>
+                    <button mat-raised-button color="warn" (click)="rejectBid(bid.id)">
+                        <mat-icon>cancel</mat-icon> Reject
+                    </button>
+                </div>
             </div>
-            <div class="bid-details">
-              <span>Amount: ${{ bid.bidAmount }}</span>
-              <span>Est. Days: {{ bid.estimatedDays }}</span>
-              <span>Bid on: {{ bid.createdAt | date:'short' }}</span>
-            </div>
-            <p class="bid-message" *ngIf="bid.proposalMessage">{{ bid.proposalMessage }}</p>
-          </div>
         </div>
       </div>
     </mat-card-content>

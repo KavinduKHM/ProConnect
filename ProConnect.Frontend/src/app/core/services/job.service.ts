@@ -87,4 +87,14 @@ export class JobService {
   getBids(jobId: number): Observable<Bid[]> {
     return this.http.get<Bid[]>(`${this.apiUrl}/Jobs/${jobId}/bids`);
   }
+
+  // Accept a bid
+  acceptBid(jobId: number, bidId: number): Observable<{ message: string }> {
+      return this.http.post<{ message: string }>(`${this.apiUrl}/Jobs/${jobId}/bids/${bidId}/accept`, {});
+  }
+
+  // Reject a bid
+  rejectBid(jobId: number, bidId: number): Observable<{ message: string }> {
+      return this.http.post<{ message: string }>(`${this.apiUrl}/Jobs/${jobId}/bids/${bidId}/reject`, {});
+  }
 }

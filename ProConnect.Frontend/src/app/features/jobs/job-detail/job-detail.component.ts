@@ -119,6 +119,41 @@ export class JobDetailComponent implements OnInit {
     return result;
   }
 
+  acceptBid(bidId: number): void {
+    if (!this.job) return;
+    if (!confirm('Are you sure you want to accept this bid? This will assign the vendor and close the job to other bidders.')) return;
+    
+    this.isLoading = true;
+    this.jobService.acceptBid(this.job.id, bidId).subscribe({
+        next: () => {
+            this.isLoading = false;
+            // Reload job and bids
+            this.loadJob(this.job!.id);
+        },
+        error: (err) => {
+            this.isLoading = false;
+            this.errorMessage = err.error?.message || 'Failed to accept bid.';
+        }
+    });
+    }
+
+    rejectBid(bidId: number): void {
+        if (!this.job) return;
+        if (!confirm('Are you sure you want to reject this bid?')) return;
+        
+        this.isLoading = true;
+        this.jobService.rejectBid(this.job.id, bidId).subscribe({
+            next: () => {
+                this.isLoading = false;
+                this.loadJob(this.job!.id);
+            },
+            error: (err) => {
+                this.isLoading = false;
+                this.errorMessage = err.error?.message || 'Failed to reject bid.';
+            }
+        });
+    }
+
   toggleBidForm(): void {
     this.showBidForm = !this.showBidForm;
     if (!this.showBidForm) {
