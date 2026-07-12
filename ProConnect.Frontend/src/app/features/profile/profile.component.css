@@ -1,0 +1,46 @@
+.profile-container {
+  max-width: 600px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
+
+mat-card {
+  padding: 24px;
+}
+
+.loading-spinner {
+  display: flex;
+  justify-content: center;
+  padding: 48px;
+}
+
+.full-width {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.vendor-section {
+  margin-top: 16px;
+}
+
+.vendor-section h3 {
+  margin: 16px 0 8px;
+  font-weight: 500;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  margin: 16px 0;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+mat-spinner {
+  margin: 0 auto;
+}

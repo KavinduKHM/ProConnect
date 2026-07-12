@@ -1,0 +1,71 @@
+<div class="profile-container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>My Profile</mat-card-title>
+      <mat-card-subtitle *ngIf="isVendor">Vendor Account</mat-card-subtitle>
+      <mat-card-subtitle *ngIf="!isVendor">Customer Account</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <div *ngIf="isLoading" class="loading-spinner">
+        <mat-spinner diameter="40"></mat-spinner>
+      </div>
+
+      <form [formGroup]="profileForm" (ngSubmit)="onSubmit()" *ngIf="!isLoading">
+        <!-- Basic Info -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Full Name</mat-label>
+          <input matInput formControlName="fullName" placeholder="Enter your full name">
+          <mat-error *ngIf="profileForm.get('fullName')?.hasError('required')">
+            Full name is required
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Phone Number</mat-label>
+          <input matInput formControlName="phoneNumber" placeholder="Enter phone number">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Address</mat-label>
+          <input matInput formControlName="address" placeholder="Enter your address">
+        </mat-form-field>
+
+        <!-- Vendor specific fields -->
+        <div *ngIf="isVendor" class="vendor-section">
+          <mat-divider></mat-divider>
+          <h3>Vendor Details</h3>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Company Name</mat-label>
+            <input matInput formControlName="companyName" placeholder="Enter company name">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Description</mat-label>
+            <textarea matInput formControlName="description" rows="3" placeholder="Describe your services"></textarea>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Website</mat-label>
+            <input matInput formControlName="website" placeholder="https://yourcompany.com">
+          </mat-form-field>
+
+          <div class="toggle-row">
+            <mat-slide-toggle formControlName="isAvailable" color="primary">
+              Available for new jobs
+            </mat-slide-toggle>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button mat-button type="button" routerLink="/dashboard">Cancel</button>
+          <button mat-raised-button color="primary" type="submit" [disabled]="isSaving">
+            <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
+            <span *ngIf="!isSaving">Save Changes</span>
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>

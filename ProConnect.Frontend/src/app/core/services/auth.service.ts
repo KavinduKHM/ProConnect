@@ -75,4 +75,22 @@ export class AuthService {
     localStorage.setItem(this.userKey, JSON.stringify(response.user));
     this.currentUserSubject.next(response.user);
   }
+
+  // Update current user in localStorage and BehaviorSubject
+  updateCurrentUser(updatedFields: Partial<User>): void {
+    const current = this.getCurrentUser();
+    if (current) {
+      const newUser = { ...current, ...updatedFields };
+      localStorage.setItem(this.userKey, JSON.stringify(newUser));
+      this.currentUserSubject.next(newUser);
+    }
+  }
+
+  // Refresh current user from localStorage (useful after updates)
+  refreshCurrentUser(): void {
+    const savedUser = localStorage.getItem(this.userKey);
+    if (savedUser) {
+        this.currentUserSubject.next(JSON.parse(savedUser));
+    }
+    }
 }
