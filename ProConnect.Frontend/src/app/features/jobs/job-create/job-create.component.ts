@@ -82,16 +82,27 @@ export class JobCreateComponent implements OnInit {
   }
 
   loadCategories(): void {
-    this.http.get<ServiceCategory[]>(`${environment.apiUrl}/ServiceCategories`)
-      .subscribe({
-        next: (data) => {
-          this.categories = data;
-        },
-        error: (err) => {
-          console.error('Failed to load categories', err);
-        }
-      });
-  }
+  this.http.get<ServiceCategory[]>(`${environment.apiUrl}/ServiceCategories`)
+    .subscribe({
+      next: (data) => {
+        this.categories = data;
+      },
+      error: (err) => {
+        console.error('Failed to load categories from backend, using fallback', err);
+        // Hardcoded fallback (these match your seeded database)
+        this.categories = [
+          { id: 1, name: 'Plumbing' },
+          { id: 2, name: 'Electrical' },
+          { id: 3, name: 'Painting' },
+          { id: 4, name: 'Transport' },
+          { id: 5, name: 'Carpentry' },
+          { id: 6, name: 'Cleaning' },
+          { id: 7, name: 'HVAC' },
+          { id: 8, name: 'Gardening' }
+        ];
+      }
+    });
+}
 
   onSubmit(): void {
   if (this.jobForm.invalid) {

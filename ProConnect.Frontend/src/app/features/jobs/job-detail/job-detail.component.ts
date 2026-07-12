@@ -100,7 +100,23 @@ export class JobDetailComponent implements OnInit {
   }
 
   canPlaceBid(): boolean {
-    return this.authService.hasRole('Vendor') && this.job?.status === 'Open' && !this.isJobOwner();
+    const hasRole = this.authService.hasRole('Vendor');
+    const isOpen = this.job?.status === 'Open';
+    const isOwner = this.isJobOwner();
+    const result = hasRole && isOpen && !isOwner;
+    
+    console.log('canPlaceBid debug:', {
+      hasRole,
+      isOpen,
+      isOwner,
+      result,
+      jobStatus: this.job?.status,
+      userRole: this.authService.getUserRole(),
+      jobCustomerName: this.job?.customerName,
+      currentUser: this.authService.getCurrentUser()?.fullName
+    });
+    
+    return result;
   }
 
   toggleBidForm(): void {

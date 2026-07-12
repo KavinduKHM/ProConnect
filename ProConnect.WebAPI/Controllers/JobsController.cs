@@ -115,6 +115,100 @@ namespace ProConnect.WebAPI.Controllers
             return Ok(response);
         }
 
+        // POST: api/Jobs/{jobId}/bids/{bidId}/accept
+        [HttpPost("{jobId}/bids/{bidId}/accept")]
+        [Authorize(Roles = "Customer")]
+        public async Task<IActionResult> AcceptBid(int jobId, int bidId)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            var job = await _context.Jobs
+                .Include(j => j.Customer)
+                .Include(j => j.Bids)
+                .FirstOrDefaultAsync(j => j.Id == jobId);
+            
+            if (job == null)
+                return NotFound("Job not found.");
+
+            // Verify the user owns this job
+            if (job.Customer.UserId != userId)
+                return Forbid("You do not own this job.");
+
+            // Verify job is still open
+            if (job.Status != "Open")
+                return BadRequest("This job is no longer open for bids.");
+
+            var bid = await _context.JobBids
+                .Include(b => b.Vendor)
+                .FirstOrDefaultAsync(b => b.Id == bidId && b.JobId == jobId);
+            
+            if (bid == null)
+                return NotFound("Bid not found.");
+
+            if (bid.Status != "Pending")
+                return BadRequest("This bid has already been processed.");
+
+            // Accept the selected bid
+            bid.Status = "Accepted";
+            
+            // Assign vendor to the job
+            job.VendorProfileId = bid.VendorProfileId;
+            job.Status = "Assigned";
+            
+            // Reject all other pending bids for this job
+            var otherBids = await _context.JobBids
+                .Where(b => b.JobId == jobId && b.Id != bidId && b.Status == "Pending")
+                .ToListAsync();
+            
+            foreach (var otherBid in otherBids)
+            {
+                otherBid.Status = "Rejected";
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Bid accepted and vendor assigned successfully." });
+        }
+
+        // POST: api/Jobs/{jobId}/bids/{bidId}/reject
+        [HttpPost("{jobId}/bids/{bidId}/reject")]
+        [Authorize(Roles = "Customer")]
+        public async Task<IActionResult> RejectBid(int jobId, int bidId)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            var job = await _context.Jobs
+                .Include(j => j.Customer)
+                .FirstOrDefaultAsync(j => j.Id == jobId);
+            
+            if (job == null)
+                return NotFound("Job not found.");
+
+            // Verify the user owns this job
+            if (job.Customer.UserId != userId)
+                return Forbid("You do not own this job.");
+
+            var bid = await _context.JobBids
+                .FirstOrDefaultAsync(b => b.Id == bidId && b.JobId == jobId);
+            
+            if (bid == null)
+                return NotFound("Bid not found.");
+
+            if (bid.Status != "Pending")
+                return BadRequest("This bid has already been processed.");
+
+            // Reject the bid
+            bid.Status = "Rejected";
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Bid rejected successfully." });
+        }
+
         // POST: api/jobs/{id}/bids
         [HttpPost("{id}/bids")]
         [Authorize(Roles = "Vendor")] // Only vendors can bid
@@ -184,6 +278,7 @@ namespace ProConnect.WebAPI.Controllers
 
             var bids = await _context.JobBids
                 .Include(b => b.Vendor)
+                    .ThenInclude(v => v.User)
                 .Where(b => b.JobId == id)
                 .ToListAsync();
 
