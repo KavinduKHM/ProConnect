@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ProConnect.Application")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9b5faf982b6198446f6e26bd458b7c72d97e35f3")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+22fd1cdb5ab635323669959f338cea7f4b4ac4b9")]
 [assembly: System.Reflection.AssemblyProductAttribute("ProConnect.Application")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ProConnect.Application")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

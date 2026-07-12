@@ -172,6 +172,110 @@ namespace ProConnect.WebAPI.Controllers
             return Ok(new { message = "Bid accepted and vendor assigned successfully." });
         }
 
+        // GET: api/Jobs/my-jobs
+        [HttpGet("my-jobs")]
+        [Authorize(Roles = "Customer")]
+        public async Task<IActionResult> GetMyJobs()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            // Find the customer profile
+            var customer = await _context.CustomerProfiles
+                .FirstOrDefaultAsync(c => c.UserId == userId);
+            
+            if (customer == null)
+                return NotFound("Customer profile not found.");
+
+            var jobs = await _context.Jobs
+                .Include(j => j.ServiceCategory)
+                .Include(j => j.Bids)
+                .Where(j => j.CustomerId == customer.Id)
+                .OrderByDescending(j => j.CreatedAt)
+                .ToListAsync();
+
+            var responses = new List<JobResponseDto>();
+            foreach (var job in jobs)
+                responses.Add(await MapToJobResponse(job));
+
+            return Ok(responses);
+        }
+
+        // GET: api/Jobs/my-bids
+        [HttpGet("my-bids")]
+        [Authorize(Roles = "Vendor")]
+        public async Task<IActionResult> GetMyBids()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            // Find the vendor profile
+            var vendor = await _context.VendorProfiles
+                .FirstOrDefaultAsync(v => v.UserId == userId);
+            
+            if (vendor == null)
+                return NotFound("Vendor profile not found.");
+
+            var bids = await _context.JobBids
+                .Include(b => b.Job)
+                    .ThenInclude(j => j.ServiceCategory)
+                .Include(b => b.Job)
+                    .ThenInclude(j => j.Customer)
+                        .ThenInclude(c => c.User)
+                .Where(b => b.VendorProfileId == vendor.Id)
+                .OrderByDescending(b => b.CreatedAt)
+                .ToListAsync();
+
+            var responses = bids.Select(b => new
+            {
+                bidId = b.Id,
+                jobId = b.JobId,
+                jobTitle = b.Job.Title,
+                jobStatus = b.Job.Status,
+                serviceCategory = b.Job.ServiceCategory.Name,
+                customerName = b.Job.Customer.User.FullName,
+                bidAmount = b.BidAmount,
+                proposalMessage = b.ProposalMessage,
+                estimatedDays = b.EstimatedDays,
+                bidStatus = b.Status,
+                createdAt = b.CreatedAt,
+                expiresAt = b.ExpiresAt
+            }).ToList();
+
+            return Ok(responses);
+        }
+
+        // GET: api/Jobs/assigned
+        [HttpGet("assigned")]
+        [Authorize(Roles = "Vendor")]
+        public async Task<IActionResult> GetAssignedJobs()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            var vendor = await _context.VendorProfiles
+                .FirstOrDefaultAsync(v => v.UserId == userId);
+            
+            if (vendor == null)
+                return NotFound("Vendor profile not found.");
+
+            var jobs = await _context.Jobs
+                .Include(j => j.ServiceCategory)
+                .Include(j => j.Customer)
+                .Where(j => j.VendorProfileId == vendor.Id && j.Status == "Assigned")
+                .OrderByDescending(j => j.CreatedAt)
+                .ToListAsync();
+
+            var responses = new List<JobResponseDto>();
+            foreach (var job in jobs)
+                responses.Add(await MapToJobResponse(job));
+
+            return Ok(responses);
+        }
+
         // POST: api/Jobs/{jobId}/bids/{bidId}/reject
         [HttpPost("{jobId}/bids/{bidId}/reject")]
         [Authorize(Roles = "Customer")]

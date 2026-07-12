@@ -1,0 +1,173 @@
+.dashboard-container {
+  max-width: 1200px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
+
+h1 {
+  font-weight: 500;
+  margin-bottom: 24px;
+}
+
+h2 {
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.error-message {
+  color: #f44336;
+  text-align: center;
+  padding: 16px;
+}
+
+.loading-spinner {
+  display: flex;
+  justify-content: center;
+  padding: 48px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px;
+}
+
+.empty-state mat-icon {
+  font-size: 64px;
+  width: 64px;
+  height: 64px;
+  color: #ccc;
+}
+
+.empty-state p {
+  margin: 12px 0 16px;
+  color: #666;
+}
+
+.job-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.job-card {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.job-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.job-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 14px;
+  color: #666;
+  margin: 8px 0;
+}
+
+.job-meta span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.job-meta mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  color: #999;
+}
+
+.urgent-badge {
+  background-color: #f44336;
+  color: white;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.job-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
+}
+
+.bids {
+  font-size: 14px;
+  color: #666;
+}
+
+/* Bid Cards */
+.bid-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.bid-card {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.bid-card:hover {
+  transform: translateX(4px);
+}
+
+.bid-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 14px;
+  color: #666;
+}
+
+.bid-meta span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bid-meta mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  color: #999;
+}
+
+.proposal-message {
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #555;
+}
+
+.bid-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+}
+
+.job-status {
+  font-size: 14px;
+  color: #666;
+}
+
+.tab-content {
+  padding: 16px 0;
+}
+
+mat-tab-group {
+  margin-top: 16px;
+}

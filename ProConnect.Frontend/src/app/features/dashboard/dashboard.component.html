@@ -1,0 +1,126 @@
+<div class="dashboard-container">
+  <h1>My Dashboard</h1>
+  
+  <!-- Error Message -->
+  <div *ngIf="errorMessage" class="error-message">
+    {{ errorMessage }}
+  </div>
+
+  <!-- Customer View -->
+  <ng-container *ngIf="isCustomer">
+    <h2>My Posted Jobs</h2>
+    
+    <div *ngIf="isLoadingJobs" class="loading-spinner">
+      <mat-spinner diameter="40"></mat-spinner>
+    </div>
+
+    <div *ngIf="!isLoadingJobs && myJobs.length === 0" class="empty-state">
+      <mat-icon>work_off</mat-icon>
+      <p>You haven't posted any jobs yet.</p>
+      <button mat-raised-button color="primary" routerLink="/jobs/create">
+        <mat-icon>add</mat-icon> Post a Job
+      </button>
+    </div>
+
+    <div class="job-grid">
+      <mat-card *ngFor="let job of myJobs" class="job-card" [routerLink]="['/jobs', job.id]">
+        <mat-card-header>
+          <mat-card-title>{{ job.title }}</mat-card-title>
+          <mat-card-subtitle>{{ job.serviceCategoryName }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="job-meta">
+            <span><mat-icon>attach_money</mat-icon> ${{ job.budgetMin }} - ${{ job.budgetMax }}</span>
+            <span><mat-icon>schedule</mat-icon> {{ job.preferredDate | date:'shortDate' }}</span>
+            <span *ngIf="job.isUrgent" class="urgent-badge">Urgent</span>
+          </div>
+          <div class="job-footer">
+            <span class="bids">Bids: {{ job.bidCount }}</span>
+            <mat-chip [color]="getStatusColor(job.status)" selected>{{ job.status }}</mat-chip>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </ng-container>
+
+  <!-- Vendor View -->
+  <ng-container *ngIf="isVendor">
+    <mat-tab-group>
+      <!-- My Bids Tab -->
+      <mat-tab label="My Bids">
+        <div class="tab-content">
+          <div *ngIf="isLoadingBids" class="loading-spinner">
+            <mat-spinner diameter="40"></mat-spinner>
+          </div>
+
+          <div *ngIf="!isLoadingBids && myBids.length === 0" class="empty-state">
+            <mat-icon>gavel</mat-icon>
+            <p>You haven't placed any bids yet.</p>
+            <button mat-raised-button color="primary" routerLink="/jobs">
+              Browse Jobs
+            </button>
+          </div>
+
+          <div class="bid-list">
+            <mat-card *ngFor="let bid of myBids" class="bid-card" [routerLink]="['/jobs', bid.jobId]">
+              <mat-card-header>
+                <mat-card-title>{{ bid.jobTitle }}</mat-card-title>
+                <mat-card-subtitle>
+                  {{ bid.serviceCategory }} • Customer: {{ bid.customerName }}
+                </mat-card-subtitle>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="bid-meta">
+                  <span><mat-icon>attach_money</mat-icon> ${{ bid.bidAmount }}</span>
+                  <span><mat-icon>schedule</mat-icon> {{ bid.estimatedDays }} days</span>
+                  <span><mat-icon>event</mat-icon> {{ bid.createdAt | date:'short' }}</span>
+                </div>
+                <p class="proposal-message" *ngIf="bid.proposalMessage">
+                  {{ bid.proposalMessage }}
+                </p>
+                <div class="bid-footer">
+                  <span class="job-status">Job Status: {{ bid.jobStatus }}</span>
+                  <mat-chip [color]="getBidStatusColor(bid.bidStatus)" selected>
+                    {{ bid.bidStatus }}
+                  </mat-chip>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+        </div>
+      </mat-tab>
+
+      <!-- Assigned Jobs Tab -->
+      <mat-tab label="Assigned Jobs">
+        <div class="tab-content">
+          <div *ngIf="isLoadingAssigned" class="loading-spinner">
+            <mat-spinner diameter="40"></mat-spinner>
+          </div>
+
+          <div *ngIf="!isLoadingAssigned && assignedJobs.length === 0" class="empty-state">
+            <mat-icon>assignment</mat-icon>
+            <p>You haven't been assigned any jobs yet.</p>
+          </div>
+
+          <div class="job-grid">
+            <mat-card *ngFor="let job of assignedJobs" class="job-card" [routerLink]="['/jobs', job.id]">
+              <mat-card-header>
+                <mat-card-title>{{ job.title }}</mat-card-title>
+                <mat-card-subtitle>{{ job.serviceCategoryName }}</mat-card-subtitle>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="job-meta">
+                  <span><mat-icon>attach_money</mat-icon> ${{ job.budgetMin }} - ${{ job.budgetMax }}</span>
+                  <span><mat-icon>person</mat-icon> {{ job.customerName }}</span>
+                </div>
+                <div class="job-footer">
+                  <mat-chip color="warn" selected>Assigned</mat-chip>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+  </ng-container>
+</div>

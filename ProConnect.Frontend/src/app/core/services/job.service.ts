@@ -97,4 +97,19 @@ export class JobService {
   rejectBid(jobId: number, bidId: number): Observable<{ message: string }> {
       return this.http.post<{ message: string }>(`${this.apiUrl}/Jobs/${jobId}/bids/${bidId}/reject`, {});
   }
+
+  // Get jobs posted by the current customer
+  getMyJobs(): Observable<Job[]> {
+      return this.http.get<Job[]>(`${this.apiUrl}/Jobs/my-jobs`);
+  }
+
+  // Get bids placed by the current vendor
+  getMyBids(): Observable<any[]> {
+      return this.http.get<any[]>(`${this.apiUrl}/Jobs/my-bids`);
+  }
+
+  // Get jobs assigned to the current vendor
+  getAssignedJobs(): Observable<Job[]> {
+      return this.http.get<Job[]>(`${this.apiUrl}/Jobs/assigned`);
+  }
 }

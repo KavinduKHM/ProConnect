@@ -24,5 +24,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/jobs/job-detail/job-detail.component').then(m => m.JobDetailComponent),
     canActivate: [AuthGuard]
   },
+  {
+    path: 'dashboard',
+    loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent),
+    canActivate: [AuthGuard]
+  },
   { path: '**', redirectTo: '/jobs' }
 ];

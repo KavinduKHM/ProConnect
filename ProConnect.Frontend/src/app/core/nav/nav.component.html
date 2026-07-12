@@ -4,6 +4,7 @@
 
   <!-- Show different buttons based on auth state -->
   <ng-container *ngIf="auth.isAuthenticated(); else unauthenticated">
+    <button mat-button routerLink="/dashboard">Dashboard</button>
     <button mat-button routerLink="/jobs">Jobs</button>
     <button mat-button *ngIf="auth.hasRole('Customer')" routerLink="/jobs/create">Post a Job</button>
     <button mat-button [matMenuTriggerFor]="userMenu">
