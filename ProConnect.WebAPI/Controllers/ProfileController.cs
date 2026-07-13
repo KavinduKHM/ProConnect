@@ -50,7 +50,10 @@ namespace ProConnect.WebAPI.Controllers
 
             if (user.IsVendor)
             {
-                var vendor = await _context.VendorProfiles.FirstOrDefaultAsync(v => v.UserId == userId);
+                var vendor = await _context.VendorProfiles
+                    .Include(v => v.ServiceCategories)
+                    .FirstOrDefaultAsync(v => v.UserId == userId);
+
                 if (vendor != null)
                 {
                     return Ok(new
@@ -67,6 +70,10 @@ namespace ProConnect.WebAPI.Controllers
                             vendor.IsVerified,
                             vendor.AverageRating,
                             vendor.TotalReviews,
+                            vendor.ReputationSummary,
+                            vendor.Skills,
+                            ServiceCategoryIds = vendor.ServiceCategories.Select(c => c.Id).ToList(),
+                            ServiceCategoryNames = vendor.ServiceCategories.Select(c => c.Name).ToList(),
                             vendor.IsAvailable,
                             vendor.CreatedAt
                         }
@@ -118,14 +125,33 @@ namespace ProConnect.WebAPI.Controllers
             // Update role-specific profile
             if (user.IsVendor)
             {
-                var vendor = await _context.VendorProfiles.FirstOrDefaultAsync(v => v.UserId == userId);
+                var vendor = await _context.VendorProfiles
+                    .Include(v => v.ServiceCategories)
+                    .FirstOrDefaultAsync(v => v.UserId == userId);
+
                 if (vendor != null)
                 {
                     if (request.CompanyName != null) vendor.CompanyName = request.CompanyName;
                     if (request.Description != null) vendor.Description = request.Description;
                     if (request.Website != null) vendor.Website = request.Website;
                     if (request.Address != null) vendor.Address = request.Address;
+                    if (request.Skills != null) vendor.Skills = request.Skills;
                     if (request.IsAvailable.HasValue) vendor.IsAvailable = request.IsAvailable.Value;
+
+                    // Categories drive job matching, so let the vendor change what they work in.
+                    if (request.ServiceCategoryIds != null)
+                    {
+                        var categories = await _context.ServiceCategories
+                            .Where(c => request.ServiceCategoryIds.Contains(c.Id))
+                            .ToListAsync();
+
+                        vendor.ServiceCategories.Clear();
+                        foreach (var category in categories)
+                        {
+                            vendor.ServiceCategories.Add(category);
+                        }
+                    }
+
                     await _context.SaveChangesAsync();
                 }
             }
@@ -152,5 +178,7 @@ namespace ProConnect.WebAPI.Controllers
         public string? Website { get; set; }       // Vendor only
         public string? Address { get; set; }
         public bool? IsAvailable { get; set; }     // Vendor only
+        public string? Skills { get; set; }        // Vendor only — drives job matching
+        public List<int>? ServiceCategoryIds { get; set; } // Vendor only — drives job matching
     }
 }

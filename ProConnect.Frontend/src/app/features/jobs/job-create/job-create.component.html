@@ -16,6 +16,10 @@
         <div *ngIf="uploadedFileName" class="file-name">
           📎 {{ uploadedFileName }}
         </div>
+
+        <!-- Preview what the vendor will see on the job -->
+        <img *ngIf="imagePreview" [src]="imagePreview" class="image-preview" alt="Uploaded photo">
+
         <div *ngIf="isAnalyzing" class="analyzing-indicator">
           <mat-spinner diameter="24"></mat-spinner>
           <span>AI is analyzing...</span>
@@ -38,6 +42,15 @@
           <mat-error *ngIf="jobForm.get('description')?.hasError('required')">Description is required</mat-error>
           <mat-error *ngIf="jobForm.get('description')?.hasError('minlength')">Description must be at least 20 characters</mat-error>
         </mat-form-field>
+
+        <div class="improve-row">
+          <button mat-stroked-button type="button" (click)="improveDescription()" [disabled]="isImproving">
+            <mat-icon>auto_awesome</mat-icon>
+            {{ isImproving ? 'Rewriting...' : 'Improve with AI' }}
+          </button>
+          <mat-spinner diameter="20" *ngIf="isImproving"></mat-spinner>
+          <span class="hint">Turns rough notes into a clear request vendors can bid on.</span>
+        </div>
 
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Service Category</mat-label>
@@ -68,6 +81,29 @@
             <mat-error *ngIf="jobForm.get('budgetMax')?.hasError('required')">Required</mat-error>
             <mat-error *ngIf="jobForm.get('budgetMax')?.hasError('min')">Must be at least 1</mat-error>
           </mat-form-field>
+        </div>
+
+        <!-- Budget estimate grounded in real completed jobs on the platform -->
+        <div class="improve-row">
+          <button mat-stroked-button type="button" (click)="estimateBudget()" [disabled]="isEstimating">
+            <mat-icon>auto_awesome</mat-icon>
+            {{ isEstimating ? 'Estimating...' : 'Suggest a budget' }}
+          </button>
+          <mat-spinner diameter="20" *ngIf="isEstimating"></mat-spinner>
+          <span class="hint">Based on what jobs like yours actually cost here.</span>
+        </div>
+
+        <div *ngIf="budgetEstimate" class="estimate-box">
+          <strong>${{ budgetEstimate.estimatedMin }} – ${{ budgetEstimate.estimatedMax }}</strong>
+          <p>{{ budgetEstimate.rationale }}</p>
+          <p class="grounding">
+            <ng-container *ngIf="budgetEstimate.basedOnJobs > 0; else noHistory">
+              Based on {{ budgetEstimate.basedOnJobs }} completed job{{ budgetEstimate.basedOnJobs === 1 ? '' : 's' }} in this category.
+            </ng-container>
+            <ng-template #noHistory>
+              No completed jobs in this category yet — this is a general estimate.
+            </ng-template>
+          </p>
         </div>
         <div *ngIf="jobForm.hasError('budgetInvalid')" class="error-message">
           Maximum budget must be greater than minimum budget.

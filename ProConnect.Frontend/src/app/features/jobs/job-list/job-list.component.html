@@ -6,6 +6,70 @@
     </button>
   </div>
 
+  <!-- Filter bar -->
+  <mat-card class="filter-bar" [formGroup]="filterForm">
+    <div class="filter-row">
+      <mat-form-field appearance="outline" class="grow">
+        <mat-label>Search</mat-label>
+        <input matInput formControlName="search"
+               [placeholder]="filterForm.value.semantic ? 'Describe the problem, e.g. water damage' : 'Title, description or location'">
+        <mat-icon matSuffix>{{ filterForm.value.semantic ? 'auto_awesome' : 'search' }}</mat-icon>
+      </mat-form-field>
+
+      <!-- Matches by meaning: 'water damage' finds 'burst pipe under the sink' -->
+      <mat-checkbox formControlName="semantic" class="semantic-check"
+                    matTooltip="Search by meaning instead of exact words">
+        AI search
+      </mat-checkbox>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Category</mat-label>
+        <mat-select formControlName="categoryId">
+          <mat-option [value]="null">All categories</mat-option>
+          <mat-option *ngFor="let cat of categories" [value]="cat.id">{{ cat.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Status</mat-label>
+        <mat-select formControlName="status">
+          <mat-option value="All">Any status</mat-option>
+          <mat-option *ngFor="let s of statusOptions" [value]="s">{{ s }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Sort by</mat-label>
+        <mat-select formControlName="sortBy">
+          <mat-option *ngFor="let opt of sortOptions" [value]="opt.value">{{ opt.label }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div class="filter-row">
+      <mat-form-field appearance="outline">
+        <mat-label>Location</mat-label>
+        <input matInput formControlName="location" placeholder="e.g., Colombo">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Min budget ($)</mat-label>
+        <input matInput type="number" formControlName="minBudget" min="0">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Max budget ($)</mat-label>
+        <input matInput type="number" formControlName="maxBudget" min="0">
+      </mat-form-field>
+
+      <mat-checkbox formControlName="isUrgent" class="urgent-check">Urgent only</mat-checkbox>
+
+      <button mat-stroked-button type="button" (click)="resetFilters()">
+        <mat-icon>clear</mat-icon> Reset
+      </button>
+    </div>
+  </mat-card>
+
   <div *ngIf="isLoading" class="loading-spinner">
     <mat-spinner diameter="40"></mat-spinner>
   </div>
@@ -16,11 +80,19 @@
 
   <div *ngIf="!isLoading && jobs.length === 0" class="empty-state">
     <mat-icon>work_off</mat-icon>
-    <p>No open jobs available at the moment.</p>
+    <p>No jobs match these filters.</p>
+    <button mat-button color="primary" (click)="resetFilters()">Clear filters</button>
   </div>
+
+  <p *ngIf="!isLoading && totalCount > 0" class="result-count">
+    {{ totalCount }} job{{ totalCount === 1 ? '' : 's' }} found
+  </p>
 
   <div class="job-grid">
     <mat-card *ngFor="let job of jobs" class="job-card" [routerLink]="['/jobs', job.id]">
+      <!-- The photo the customer uploaded: vendors should bid on what they can see. -->
+      <img *ngIf="imageFor(job) as src" [src]="src" class="job-thumb" alt="{{ job.title }}">
+
       <mat-card-header>
         <mat-card-title>{{ job.title }}</mat-card-title>
         <mat-card-subtitle>{{ job.serviceCategoryName }}</mat-card-subtitle>
@@ -41,4 +113,14 @@
       </mat-card-content>
     </mat-card>
   </div>
+
+  <mat-paginator
+    *ngIf="totalCount > 0"
+    [length]="totalCount"
+    [pageSize]="pageSize"
+    [pageIndex]="pageIndex"
+    [pageSizeOptions]="[6, 12, 24, 48]"
+    (page)="onPageChange($event)"
+    showFirstLastButtons>
+  </mat-paginator>
 </div>

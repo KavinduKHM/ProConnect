@@ -2,7 +2,7 @@
   <mat-spinner diameter="40"></mat-spinner>
 </div>
 
-<div *ngIf="errorMessage" class="error-message">
+<div *ngIf="errorMessage && !job" class="error-message">
   {{ errorMessage }}
   <button mat-button routerLink="/jobs">Back to Jobs</button>
 </div>
@@ -16,6 +16,9 @@
   </div>
 
   <mat-card>
+    <!-- The customer's photo of the problem -->
+    <img *ngIf="imageSrc as src" [src]="src" class="job-image" alt="{{ job.title }}">
+
     <mat-card-header>
       <mat-card-title>{{ job.title }}</mat-card-title>
       <mat-card-subtitle>
@@ -48,43 +51,216 @@
       <div class="description-section">
         <h3>Description</h3>
         <p>{{ job.description }}</p>
+
+        <!-- Posted in another language: vendors read the translation, the original is kept -->
+        <details *ngIf="job.originalLanguage" class="original-language">
+          <summary>
+            <mat-icon>translate</mat-icon>
+            Translated from {{ job.originalLanguage }} — show the customer's original
+          </summary>
+          <p>{{ job.originalDescription }}</p>
+        </details>
       </div>
 
-      <mat-divider *ngIf="bids.length > 0"></mat-divider>
+      <!-- Recommended vendors (customer, while the job is still open) -->
+      <ng-container *ngIf="job.isOwner && job.status === 'Open'">
+        <mat-divider></mat-divider>
+        <div class="matches-section">
+          <div class="section-head">
+            <h3>Who should do this job?</h3>
+            <button mat-stroked-button type="button" (click)="findVendors()" [disabled]="isMatching">
+              <mat-icon>auto_awesome</mat-icon>
+              {{ isMatching ? 'Matching...' : 'Find matching vendors' }}
+            </button>
+          </div>
+          <mat-spinner diameter="24" *ngIf="isMatching"></mat-spinner>
 
-      <div *ngIf="isJobOwner() && bids.length > 0" class="bids-section">
-        <h3>Bids ({{ bids.length }})</h3>
-        <div class="bid-list">
-          <div *ngFor="let bid of bids" class="bid-item">
-                <div class="bid-header">
-                    <span class="vendor-name">{{ bid.vendorName }}</span>
-                    <span class="vendor-company">{{ bid.vendorCompany }}</span>
-                    <mat-chip [color]="bid.status === 'Pending' ? 'accent' : 'primary'" selected>
-                        {{ bid.status }}
-                    </mat-chip>
-                </div>
-                <div class="bid-details">
-                    <span>Amount: ${{ bid.bidAmount }}</span>
-                    <span>Est. Days: {{ bid.estimatedDays }}</span>
-                    <span>Bid on: {{ bid.createdAt | date:'short' }}</span>
-                </div>
-                <p class="bid-message" *ngIf="bid.proposalMessage">{{ bid.proposalMessage }}</p>
-                
-                <!-- Accept/Reject buttons (only for job owner and only if job is still open) -->
-                <div class="bid-actions" *ngIf="isJobOwner() && job?.status === 'Open' && bid.status === 'Pending'">
-                    <button mat-raised-button color="primary" (click)="acceptBid(bid.id)">
-                        <mat-icon>check_circle</mat-icon> Accept
-                    </button>
-                    <button mat-raised-button color="warn" (click)="rejectBid(bid.id)">
-                        <mat-icon>cancel</mat-icon> Reject
-                    </button>
-                </div>
+          <div *ngFor="let vendor of recommendedVendors" class="vendor-match">
+            <div class="match-head">
+              <span class="match-score">{{ vendor.score }}</span>
+              <span class="match-company">{{ vendor.companyName }}</span>
+              <span class="match-rating" *ngIf="vendor.totalReviews > 0">
+                <mat-icon class="star-on">star</mat-icon>
+                {{ vendor.averageRating | number:'1.1-2' }} ({{ vendor.totalReviews }})
+              </span>
+              <span class="match-rating" *ngIf="vendor.totalReviews === 0">No reviews yet</span>
             </div>
+            <p class="match-reason">{{ vendor.reason }}</p>
+            <p class="match-skills" *ngIf="vendor.skills">Skills: {{ vendor.skills }}</p>
+            <p class="match-rep" *ngIf="vendor.reputationSummary">
+              <mat-icon>auto_awesome</mat-icon> {{ vendor.reputationSummary }}
+            </p>
+          </div>
         </div>
-      </div>
+      </ng-container>
+
+      <!-- Booking panel: appears the moment a bid is accepted -->
+      <ng-container *ngIf="booking">
+        <mat-divider></mat-divider>
+        <div class="booking-section">
+          <h3>Booking</h3>
+          <div class="booking-meta">
+            <span><mat-icon>engineering</mat-icon> {{ booking.vendorCompany }} ({{ booking.vendorName }})</span>
+            <span><mat-icon>event</mat-icon> {{ booking.scheduledDate | date:'mediumDate' }}</span>
+            <span><mat-icon>payments</mat-icon> Agreed price: ${{ booking.totalPrice }}</span>
+            <mat-chip [color]="getStatusColor(booking.status)" selected>{{ booking.status }}</mat-chip>
+          </div>
+
+          <p *ngIf="booking.startTime" class="booking-time">
+            Started {{ booking.startTime | date:'short' }}
+            <span *ngIf="booking.completedAt"> • Completed {{ booking.completedAt | date:'short' }}</span>
+          </p>
+
+          <!-- Proof of completion: the vendor's "after" photo, and the AI's read of it -->
+          <div *ngIf="job.completionImageUrl" class="completion-proof">
+            <h4>Proof of completion</h4>
+            <img [src]="completionSrc" class="completion-image" alt="Completed work">
+            <p *ngIf="job.completionVerdict" class="completion-verdict">
+              <mat-icon>auto_awesome</mat-icon> {{ job.completionVerdict }}
+            </p>
+          </div>
+
+          <!-- Vendor attaches an "after" photo before marking the job complete -->
+          <div *ngIf="canCompleteWork()" class="completion-upload">
+            <button mat-stroked-button type="button" (click)="completionInput.click()">
+              <mat-icon>photo_camera</mat-icon>
+              {{ completionPhoto ? 'Change photo' : 'Attach a photo of the finished work (optional)' }}
+            </button>
+            <input #completionInput type="file" accept="image/*" hidden
+                   (change)="onCompletionPhotoSelected($event)">
+            <img *ngIf="completionPreview" [src]="completionPreview" class="completion-preview" alt="Completion preview">
+            <p class="hint" *ngIf="completionPhoto">
+              The customer will see this, and the AI will compare it against their original photo.
+            </p>
+          </div>
+
+          <div class="booking-actions">
+            <button *ngIf="canStartWork()" mat-raised-button color="primary"
+                    [disabled]="isWorkingBooking" (click)="startWork()">
+              <mat-icon>play_arrow</mat-icon> Start Work
+            </button>
+
+            <button *ngIf="canCompleteWork()" mat-raised-button color="primary"
+                    [disabled]="isWorkingBooking" (click)="completeWork()">
+              <mat-icon>task_alt</mat-icon> Mark Complete
+            </button>
+
+            <button *ngIf="canCancelBooking()" mat-stroked-button color="warn"
+                    [disabled]="isWorkingBooking" (click)="cancelBooking()">
+              <mat-icon>cancel</mat-icon> Cancel Booking
+            </button>
+
+            <mat-spinner diameter="24" *ngIf="isWorkingBooking"></mat-spinner>
+          </div>
+
+          <p *ngIf="job.isOwner && job.status === 'Completed' && !job.hasReview" class="review-prompt">
+            This job is complete — leave {{ booking.vendorCompany }} a review below.
+          </p>
+        </div>
+      </ng-container>
+
+      <!-- Leave a review (customer, completed, not yet reviewed) -->
+      <ng-container *ngIf="canReview()">
+        <mat-divider></mat-divider>
+        <div class="review-section">
+          <h3>Rate this vendor</h3>
+          <form [formGroup]="reviewForm" (ngSubmit)="submitReview()">
+            <div class="star-picker">
+              <button type="button" mat-icon-button *ngFor="let star of stars" (click)="setRating(star)"
+                      [attr.aria-label]="star + ' star'">
+                <mat-icon [class.star-on]="star <= reviewForm.value.rating">
+                  {{ star <= reviewForm.value.rating ? 'star' : 'star_border' }}
+                </mat-icon>
+              </button>
+              <span class="star-label" *ngIf="reviewForm.value.rating">{{ reviewForm.value.rating }} / 5</span>
+            </div>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Comment (optional)</mat-label>
+              <textarea matInput formControlName="comment" rows="3"
+                        placeholder="How did it go?"></textarea>
+            </mat-form-field>
+
+            <button mat-raised-button color="primary" type="submit" [disabled]="isSubmittingReview">
+              <mat-spinner diameter="20" *ngIf="isSubmittingReview"></mat-spinner>
+              <span *ngIf="!isSubmittingReview">Submit Review</span>
+            </button>
+          </form>
+        </div>
+      </ng-container>
+
+      <!-- The review, once it exists -->
+      <ng-container *ngIf="review">
+        <mat-divider></mat-divider>
+        <div class="review-section">
+          <h3>Review</h3>
+          <div class="review-stars">
+            <mat-icon *ngFor="let star of stars" [class.star-on]="star <= review.rating">
+              {{ star <= review.rating ? 'star' : 'star_border' }}
+            </mat-icon>
+            <span class="star-label">{{ review.rating }} / 5</span>
+          </div>
+          <p *ngIf="review.comment" class="review-comment">"{{ review.comment }}"</p>
+          <p class="review-by">— {{ review.reviewerName }}, {{ review.createdAt | date:'mediumDate' }}</p>
+        </div>
+      </ng-container>
+
+      <!-- Bids (owner only) -->
+      <ng-container *ngIf="job.isOwner && bids.length > 0">
+        <mat-divider></mat-divider>
+        <div class="bids-section">
+          <div class="section-head">
+            <h3>Bids ({{ bids.length }})</h3>
+            <button mat-stroked-button type="button" (click)="rankBids()" [disabled]="isRanking">
+              <mat-icon>auto_awesome</mat-icon>
+              {{ isRanking ? 'Comparing...' : 'Compare bids with AI' }}
+            </button>
+          </div>
+          <mat-spinner diameter="24" *ngIf="isRanking"></mat-spinner>
+
+          <div *ngIf="bidRanking" class="ranking-summary">
+            <mat-icon>auto_awesome</mat-icon> {{ bidRanking.summary }}
+          </div>
+
+          <div class="bid-list">
+            <div *ngFor="let bid of bids" class="bid-item">
+              <div class="bid-header">
+                <span class="rank-badge" *ngIf="rankFor(bid.id) as rank"
+                      [class.rank-best]="bidRanking?.recommendedBidId === bid.id">#{{ rank }}</span>
+                <span class="vendor-name">{{ bid.vendorName }}</span>
+                <span class="vendor-company">{{ bid.vendorCompany }}</span>
+                <mat-chip *ngIf="bidRanking?.recommendedBidId === bid.id" color="primary" selected>
+                  AI pick
+                </mat-chip>
+                <mat-chip [color]="bid.status === 'Pending' ? 'accent' : 'primary'" selected>
+                  {{ bid.status }}
+                </mat-chip>
+              </div>
+              <p class="rank-reason" *ngIf="reasonFor(bid.id) as reason">
+                <mat-icon>auto_awesome</mat-icon> {{ reason }}
+              </p>
+              <div class="bid-details">
+                <span>Amount: ${{ bid.bidAmount }}</span>
+                <span>Est. Days: {{ bid.estimatedDays }}</span>
+                <span>Bid on: {{ bid.createdAt | date:'short' }}</span>
+              </div>
+              <p class="bid-message" *ngIf="bid.proposalMessage">{{ bid.proposalMessage }}</p>
+
+              <div class="bid-actions" *ngIf="job.status === 'Open' && bid.status === 'Pending'">
+                <button mat-raised-button color="primary" (click)="acceptBid(bid.id)">
+                  <mat-icon>check_circle</mat-icon> Accept
+                </button>
+                <button mat-raised-button color="warn" (click)="rejectBid(bid.id)">
+                  <mat-icon>cancel</mat-icon> Reject
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-container>
     </mat-card-content>
 
-    <mat-card-actions *ngIf="canPlaceBid()">
+    <mat-card-actions *ngIf="canPlaceBid() && !showBidForm">
       <button mat-raised-button color="primary" (click)="toggleBidForm()">
         <mat-icon>gavel</mat-icon> Place a Bid
       </button>
@@ -106,18 +282,46 @@
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Proposal Message</mat-label>
-          <textarea matInput formControlName="proposalMessage" rows="3" placeholder="Explain why you're the best fit..."></textarea>
-          <mat-error *ngIf="bidForm.get('proposalMessage')?.hasError('required')">Message is required</mat-error>
-          <mat-error *ngIf="bidForm.get('proposalMessage')?.hasError('minlength')">Message must be at least 10 characters</mat-error>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="full-width">
           <mat-label>Estimated Days</mat-label>
           <input matInput type="number" formControlName="estimatedDays" min="1">
           <mat-error *ngIf="bidForm.get('estimatedDays')?.hasError('required')">Estimated days are required</mat-error>
           <mat-error *ngIf="bidForm.get('estimatedDays')?.hasError('min')">Must be at least 1 day</mat-error>
         </mat-form-field>
+
+        <!-- AI price sanity check -->
+        <div class="ai-check">
+          <button mat-stroked-button type="button" (click)="evaluateBid()" [disabled]="isEvaluating">
+            <mat-icon>auto_awesome</mat-icon>
+            {{ isEvaluating ? 'Checking...' : 'Check my price with AI' }}
+          </button>
+          <mat-spinner diameter="20" *ngIf="isEvaluating"></mat-spinner>
+        </div>
+
+        <div *ngIf="bidEvaluation" class="verdict" [ngClass]="verdictClass(bidEvaluation.verdict)">
+          <strong>{{ bidEvaluation.verdict }}</strong>
+          <p>{{ bidEvaluation.reason }}</p>
+          <p *ngIf="bidEvaluation.suggestedMin && bidEvaluation.suggestedMax" class="suggested">
+            A fair price for this work looks like
+            ${{ bidEvaluation.suggestedMin }} – ${{ bidEvaluation.suggestedMax }}.
+          </p>
+        </div>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Proposal Message</mat-label>
+          <textarea matInput formControlName="proposalMessage" rows="3"
+                    placeholder="Explain why you're the best fit..."></textarea>
+          <mat-error *ngIf="bidForm.get('proposalMessage')?.hasError('required')">Message is required</mat-error>
+          <mat-error *ngIf="bidForm.get('proposalMessage')?.hasError('minlength')">Message must be at least 10 characters</mat-error>
+        </mat-form-field>
+
+        <div class="ai-check">
+          <button mat-stroked-button type="button" (click)="writeProposal()" [disabled]="isWritingProposal">
+            <mat-icon>auto_awesome</mat-icon>
+            {{ isWritingProposal ? 'Writing...' : 'Write it for me' }}
+          </button>
+          <mat-spinner diameter="20" *ngIf="isWritingProposal"></mat-spinner>
+          <span class="hint">Jot down rough notes above and the AI will turn them into a proposal.</span>
+        </div>
 
         <div *ngIf="errorMessage" class="error-message">
           {{ errorMessage }}

@@ -67,3 +67,47 @@ mat-divider {
 }
 
 /* rest of existing styles ... */
+.image-preview {
+  width: 100%;
+  max-height: 240px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-top: 12px;
+  display: block;
+}
+
+.improve-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: -8px 0 16px;
+  flex-wrap: wrap;
+}
+
+.improve-row .hint {
+  color: #777;
+  font-size: 13px;
+}
+
+.estimate-box {
+  border-left: 4px solid #7e57c2;
+  background: #f5f2fb;
+  border-radius: 4px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.estimate-box strong {
+  font-size: 18px;
+}
+
+.estimate-box p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #444;
+}
+
+.estimate-box .grounding {
+  color: #777;
+  font-size: 13px;
+}

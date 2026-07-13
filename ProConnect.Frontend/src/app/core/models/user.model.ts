@@ -21,6 +21,10 @@ export interface RegisterRequest {
   companyName?: string;
   phoneNumber?: string;
   address?: string;
+  /** Vendor only: free-text skills. Drives job matching. */
+  skills?: string;
+  /** Vendor only: the trades they work in. Drives job matching. */
+  serviceCategoryIds?: number[];
 }
 
 export interface AuthResponse {

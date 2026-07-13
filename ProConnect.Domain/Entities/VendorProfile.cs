@@ -18,6 +18,16 @@ namespace ProConnect.Domain.Entities
         public bool IsVerified { get; set; } = false;
         public double AverageRating { get; set; } = 0;
         public int TotalReviews { get; set; } = 0;
+
+        /// <summary>Free-text skills the vendor declares at registration, e.g. "leak repair, pipe fitting, water heaters".</summary>
+        public string? Skills { get; set; }
+
+        // One-line AI blurb distilled from this vendor's reviews.
+        public string? ReputationSummary { get; set; }
+
+        /// <summary>Review count the summary was built from, so we don't re-summarize on every single review.</summary>
+        public int ReputationSummaryReviewCount { get; set; } = 0;
+
         public bool IsAvailable { get; set; } = true;
         public DateTime CreatedAt { get; set; }
 

@@ -16,6 +16,44 @@
   font-weight: 500;
 }
 
+.filter-bar {
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-row mat-form-field {
+  min-width: 160px;
+}
+
+.filter-row .grow {
+  flex: 1 1 260px;
+}
+
+.urgent-check {
+  margin-bottom: 20px;
+}
+
+.result-count {
+  color: #666;
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+
+.job-thumb {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 4px 4px 0 0;
+  display: block;
+}
+
 .loading-spinner {
   display: flex;
   justify-content: center;
@@ -119,4 +157,8 @@
 
 mat-chip {
   font-size: 12px;
+}
+.semantic-check {
+  margin-bottom: 20px;
+  white-space: nowrap;
 }

@@ -74,6 +74,25 @@
           </mat-error>
         </mat-form-field>
 
+        <!-- Trades and skills: these are what we match jobs against -->
+        <mat-form-field *ngIf="isVendor" appearance="outline" class="full-width">
+          <mat-label>Services you offer</mat-label>
+          <mat-select formControlName="serviceCategoryIds" multiple>
+            <mat-option *ngFor="let cat of categories" [value]="cat.id">{{ cat.name }}</mat-option>
+          </mat-select>
+          <mat-hint>We only send you jobs in the trades you pick.</mat-hint>
+          <mat-error *ngIf="registerForm.get('serviceCategoryIds')?.hasError('required')">
+            Pick at least one service
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field *ngIf="isVendor" appearance="outline" class="full-width">
+          <mat-label>Your skills</mat-label>
+          <textarea matInput formControlName="skills" rows="2"
+                    placeholder="e.g. leak repair, pipe fitting, water heater installation, drain unblocking"></textarea>
+          <mat-hint>Be specific — we match jobs to these, so the better they are, the better the jobs.</mat-hint>
+        </mat-form-field>
+
         <!-- Phone Number -->
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Phone Number</mat-label>

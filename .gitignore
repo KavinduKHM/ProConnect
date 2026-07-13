@@ -1,0 +1,18 @@
+# Uploaded job photos are user data, not source
+ProConnect.WebAPI/wwwroot/uploads/*
+!ProConnect.WebAPI/wwwroot/uploads/.gitkeep
+
+# Local secrets
+**/appsettings.*.local.json
+
+# Build output
+[Bb]in/
+[Oo]bj/
+node_modules/
+dist/
+.angular/
+
+# Local database
+*.db
+*.db-shm
+*.db-wal

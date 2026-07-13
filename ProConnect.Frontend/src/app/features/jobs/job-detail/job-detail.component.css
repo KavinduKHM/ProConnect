@@ -4,6 +4,136 @@
   padding: 0 16px;
 }
 
+.job-image {
+  width: 100%;
+  max-height: 380px;
+  object-fit: cover;
+  border-radius: 4px 4px 0 0;
+  display: block;
+}
+
+/* Booking */
+.booking-section,
+.review-section {
+  padding: 16px 0;
+}
+
+.booking-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  color: #555;
+  font-size: 14px;
+}
+
+.booking-meta span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.booking-meta mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: #999;
+}
+
+.booking-time {
+  color: #777;
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+
+.booking-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.review-prompt {
+  margin-top: 12px;
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+/* Reviews */
+.star-picker,
+.review-stars {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.star-picker mat-icon,
+.review-stars mat-icon {
+  color: #bdbdbd;
+}
+
+.star-on {
+  color: #fbc02d !important;
+}
+
+.star-label {
+  margin-left: 8px;
+  color: #666;
+  font-size: 14px;
+}
+
+.review-comment {
+  font-style: italic;
+  color: #444;
+  margin: 8px 0;
+}
+
+.review-by {
+  color: #777;
+  font-size: 13px;
+  margin: 0;
+}
+
+/* AI bid check */
+.ai-check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.verdict {
+  border-left: 4px solid;
+  border-radius: 4px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.verdict p {
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+
+.verdict .suggested {
+  color: #555;
+}
+
+.verdict-fair {
+  border-color: #2e7d32;
+  background: #edf7ee;
+}
+
+.verdict-low {
+  border-color: #ef6c00;
+  background: #fff4e5;
+}
+
+.verdict-high {
+  border-color: #c62828;
+  background: #fdecea;
+}
+
 .loading-spinner {
   display: flex;
   justify-content: center;
@@ -176,4 +306,184 @@ mat-spinner {
     font-size: 18px;
     width: 18px;
     height: 18px;
+}
+/* Section headers with an action on the right */
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Translated posts */
+.original-language {
+  margin-top: 12px;
+  color: #666;
+  font-size: 14px;
+}
+
+.original-language summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.original-language mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.original-language p {
+  margin: 8px 0 0 24px;
+  font-style: italic;
+}
+
+/* Vendor matches */
+.matches-section {
+  padding: 16px 0;
+}
+
+.vendor-match {
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-top: 12px;
+}
+
+.match-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.match-score {
+  background: #7e57c2;
+  color: white;
+  border-radius: 12px;
+  padding: 2px 10px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.match-company {
+  font-weight: 500;
+}
+
+.match-rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #666;
+  font-size: 14px;
+}
+
+.match-rating mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.match-reason {
+  margin: 8px 0 0;
+  color: #444;
+}
+
+.match-skills {
+  margin: 4px 0 0;
+  color: #777;
+  font-size: 13px;
+}
+
+.match-rep {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  color: #555;
+  font-style: italic;
+  font-size: 13px;
+}
+
+.match-rep mat-icon,
+.ranking-summary mat-icon,
+.rank-reason mat-icon,
+.completion-verdict mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  color: #7e57c2;
+}
+
+/* Bid ranking */
+.ranking-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f5f2fb;
+  border-left: 4px solid #7e57c2;
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin: 12px 0;
+  font-size: 14px;
+}
+
+.rank-badge {
+  background: #eee;
+  color: #555;
+  border-radius: 10px;
+  padding: 1px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.rank-badge.rank-best {
+  background: #7e57c2;
+  color: white;
+}
+
+.rank-reason {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0;
+  color: #666;
+  font-size: 13px;
+}
+
+/* Completion proof */
+.completion-proof,
+.completion-upload {
+  margin-top: 16px;
+}
+
+.completion-proof h4 {
+  margin: 0 0 8px;
+}
+
+.completion-image,
+.completion-preview {
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 6px;
+  display: block;
+  margin-top: 8px;
+}
+
+.completion-verdict {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  color: #444;
+  font-size: 14px;
+}
+
+.hint {
+  color: #777;
+  font-size: 13px;
 }

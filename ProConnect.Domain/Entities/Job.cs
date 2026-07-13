@@ -26,6 +26,20 @@ namespace ProConnect.Domain.Entities
 
         public string Status { get; set; } = "Open"; // Open, Bidding, Assigned, InProgress, Completed, Cancelled
 
+        /// <summary>
+        /// 768-dim embedding of title+description, stored as a JSON array.
+        /// Used for semantic search; null when the AI was unavailable at post time.
+        /// </summary>
+        public string? Embedding { get; set; }
+
+        /// <summary>The customer's own words, kept when we translate the post into English.</summary>
+        public string? OriginalDescription { get; set; }
+        public string? OriginalLanguage { get; set; }
+
+        /// <summary>Photo the vendor uploads on completion, and the AI's read of it against the original.</summary>
+        public string? CompletionImageUrl { get; set; }
+        public string? CompletionVerdict { get; set; }
+
         public DateTime CreatedAt { get; set; }
         public DateTime? CompletedAt { get; set; }
 

@@ -19,6 +19,7 @@ import { MatDividerModule } from '@angular/material/divider';
 
 import { JobService, CreateJobRequest } from '../../../core/services/job.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { AiService, BudgetEstimate } from '../../../core/services/ai.service';
 import { environment } from '../../../../environments/environment';
 
 interface ServiceCategory {
@@ -56,10 +57,19 @@ export class JobCreateComponent implements OnInit {
   categories: ServiceCategory[] = [];
   uploadedFileName: string | null = null;
 
+  isImproving = false;
+  isEstimating = false;
+  budgetEstimate: BudgetEstimate | null = null;
+
+  /** Where the API stored the uploaded photo; travels with the job so vendors can see it. */
+  imageUrl: string | null = null;
+  imagePreview: string | null = null;
+
   constructor(
     private fb: FormBuilder,
     private jobService: JobService,
     private authService: AuthService,
+    private aiService: AiService,
     private router: Router,
     private http: HttpClient,
     private snackBar: MatSnackBar
@@ -132,40 +142,121 @@ export class JobCreateComponent implements OnInit {
       }
 
       this.uploadedFileName = file.name;
+
+      // Show the photo straight away rather than waiting on the AI round-trip.
+      const reader = new FileReader();
+      reader.onload = () => (this.imagePreview = reader.result as string);
+      reader.readAsDataURL(file);
+
       this.analyzeImage(file);
     }
   }
 
   analyzeImage(file: File): void {
     this.isAnalyzing = true;
-    const formData = new FormData();
-    formData.append('file', file);
 
-    this.http.post<any>(`${environment.apiUrl}/Ai/analyze-image`, formData)
-      .subscribe({
-        next: (data) => {
-          this.isAnalyzing = false;
-          // Patch the form with AI-generated data
-          if (data.title) this.jobForm.patchValue({ title: data.title });
-          if (data.description) this.jobForm.patchValue({ description: data.description });
-          if (data.estimatedBudgetMin) this.jobForm.patchValue({ budgetMin: data.estimatedBudgetMin });
-          if (data.estimatedBudgetMax) this.jobForm.patchValue({ budgetMax: data.estimatedBudgetMax });
-          if (data.isUrgent !== undefined) this.jobForm.patchValue({ isUrgent: data.isUrgent });
-          if (data.suggestedCategory) {
-            // Find category id by name
-            const cat = this.categories.find(c => c.name.toLowerCase() === data.suggestedCategory.toLowerCase());
-            if (cat) {
-              this.jobForm.patchValue({ serviceCategoryId: cat.id });
-            }
-          }
-          this.snackBar.open('AI analyzed the image and filled the form.', 'Close', { duration: 3000 });
-        },
-        error: (err) => {
-          this.isAnalyzing = false;
-          console.error('AI analysis failed', err);
-          this.snackBar.open('AI analysis failed. Please fill the form manually.', 'Close', { duration: 3000 });
+    this.aiService.analyzeImage(file).subscribe({
+      next: (data) => {
+        this.isAnalyzing = false;
+
+        // The API kept the photo — carry its URL through to the job so vendors see it.
+        this.imageUrl = data.imageUrl ?? null;
+
+        // Don't auto-fill the form from a photo with no home-service issue in it.
+        if (data.isRelevant === false) {
+          this.snackBar.open(
+            "That photo doesn't look like a home-service problem. Upload a photo of the issue, or fill the form in yourself.",
+            'Close',
+            { duration: 7000 }
+          );
+          return;
         }
-      });
+
+        if (data.title) this.jobForm.patchValue({ title: data.title });
+        if (data.description) this.jobForm.patchValue({ description: data.description });
+        if (data.estimatedBudgetMin) this.jobForm.patchValue({ budgetMin: data.estimatedBudgetMin });
+        if (data.estimatedBudgetMax) this.jobForm.patchValue({ budgetMax: data.estimatedBudgetMax });
+        if (data.isUrgent !== undefined) this.jobForm.patchValue({ isUrgent: data.isUrgent });
+        if (data.suggestedCategory) {
+          const cat = this.categories.find(
+            c => c.name.toLowerCase() === data.suggestedCategory!.toLowerCase()
+          );
+          if (cat) {
+            this.jobForm.patchValue({ serviceCategoryId: cat.id });
+          }
+        }
+        this.snackBar.open('AI analyzed the image and filled the form.', 'Close', { duration: 3000 });
+      },
+      error: (err) => {
+        this.isAnalyzing = false;
+        console.error('AI analysis failed', err);
+        const reason = err.error?.message;
+        this.snackBar.open(
+          reason ? `AI analysis failed: ${reason}` : 'AI analysis failed. Please fill the form manually.',
+          'Close',
+          { duration: 6000 }
+        );
+      }
+    });
+  }
+
+  /**
+   * Suggests a budget range anchored in what jobs like this actually completed for on the platform,
+   * rather than what the model imagines things cost.
+   */
+  estimateBudget(): void {
+    const description = this.jobForm.value.description;
+    const categoryId = +this.jobForm.value.serviceCategoryId;
+
+    if (!description || description.trim().length < 10) {
+      this.snackBar.open('Describe the job first so the estimate has something to go on.', 'Close', { duration: 4000 });
+      return;
+    }
+    if (!categoryId) {
+      this.snackBar.open('Pick a service category first.', 'Close', { duration: 4000 });
+      return;
+    }
+
+    this.isEstimating = true;
+    this.budgetEstimate = null;
+    this.aiService.estimateBudget(description, categoryId, this.jobForm.value.title).subscribe({
+      next: (estimate) => {
+        this.isEstimating = false;
+        this.budgetEstimate = estimate;
+        this.jobForm.patchValue({
+          budgetMin: estimate.estimatedMin,
+          budgetMax: estimate.estimatedMax
+        });
+      },
+      error: (err) => {
+        this.isEstimating = false;
+        this.snackBar.open(err.error?.message || 'Could not estimate a budget.', 'Close', { duration: 5000 });
+      }
+    });
+  }
+
+  /** Rewrites whatever the customer typed into something a vendor can actually bid on. */
+  improveDescription(): void {
+    const description = this.jobForm.value.description;
+    if (!description || description.trim().length < 10) {
+      this.snackBar.open('Write a rough description first, then let the AI polish it.', 'Close', { duration: 4000 });
+      return;
+    }
+
+    const category = this.categories.find(c => c.id === +this.jobForm.value.serviceCategoryId)?.name;
+
+    this.isImproving = true;
+    this.aiService.improveDescription(description, this.jobForm.value.title, category).subscribe({
+      next: (result) => {
+        this.isImproving = false;
+        this.jobForm.patchValue({ description: result.improvedDescription });
+        this.snackBar.open('Description rewritten by AI.', 'Close', { duration: 3000 });
+      },
+      error: (err) => {
+        this.isImproving = false;
+        this.snackBar.open(err.error?.message || 'Could not improve the description.', 'Close', { duration: 5000 });
+      }
+    });
   }
   // ----------------------------------------------------
 
@@ -182,6 +273,7 @@ export class JobCreateComponent implements OnInit {
     const payload: CreateJobRequest = {
       title: formData.title,
       description: formData.description,
+      imageUrl: this.imageUrl ?? undefined,
       serviceCategoryId: +formData.serviceCategoryId,
       location: formData.location,
       budgetMin: +formData.budgetMin,

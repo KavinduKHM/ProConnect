@@ -23,6 +23,12 @@ export interface VendorProfile {
   isVerified: boolean;
   averageRating: number;
   totalReviews: number;
+  /** One-line AI blurb distilled from this vendor's reviews. */
+  reputationSummary?: string;
+  /** Free-text skills; drives job matching. */
+  skills?: string;
+  serviceCategoryIds?: number[];
+  serviceCategoryNames?: string[];
   isAvailable: boolean;
   createdAt: string;
 }
@@ -48,6 +54,8 @@ export interface UpdateProfileRequest {
   website?: string;
   address?: string;
   isAvailable?: boolean;
+  skills?: string;
+  serviceCategoryIds?: number[];
 }
 
 @Injectable({

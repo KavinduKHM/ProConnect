@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ProConnect.Domain.Entities;
 using ProConnect.Infrastructure.Data;
 using ProConnect.WebAPI.Dtos;
+using ProConnect.WebAPI.Services;
 using System.Security.Claims;
 using Microsoft.AspNetCore.SignalR;
 using ProConnect.WebAPI.Hubs;
@@ -16,38 +16,61 @@ namespace ProConnect.WebAPI.Controllers
     [Authorize] // All endpoints require authentication
     public class JobsController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly IHubContext<NotificationHub> _hubContext;
+        /// <summary>How many matched vendors get told about a new job.</summary>
+        private const int VendorsToNotify = 5;
 
-        public JobsController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IHubContext<NotificationHub> hubContext)
+        /// <summary>Below this cosine similarity a job is not really about the query. Tuned against real embeddings.</summary>
+        private const double SemanticMinimumScore = 0.72;
+
+        private readonly ApplicationDbContext _context;
+        private readonly IHubContext<NotificationHub> _hubContext;
+        private readonly NotificationService _notifications;
+        private readonly ContentAiService _content;
+        private readonly VendorMatchingService _matching;
+        private readonly AiService _aiService;
+        private readonly ILogger<JobsController> _logger;
+
+        public JobsController(
+            ApplicationDbContext context,
+            IHubContext<NotificationHub> hubContext,
+            NotificationService notifications,
+            ContentAiService content,
+            VendorMatchingService matching,
+            AiService aiService,
+            ILogger<JobsController> logger)
         {
             _context = context;
-            _userManager = userManager;
             _hubContext = hubContext;
+            _notifications = notifications;
+            _content = content;
+            _matching = matching;
+            _aiService = aiService;
+            _logger = logger;
         }
 
         // POST: api/jobs
         [HttpPost]
         [Authorize(Roles = "Customer")] // Only customers can create jobs
-        public async Task<IActionResult> CreateJob([FromBody] CreateJobDto dto)
+        public async Task<IActionResult> CreateJob([FromBody] CreateJobDto dto, CancellationToken cancellationToken)
         {
-            // Get the logged-in user
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
 
-            // Find the customer profile
             var customer = await _context.CustomerProfiles
                 .Include(c => c.User)
-                .FirstOrDefaultAsync(c => c.UserId == userId);
+                .FirstOrDefaultAsync(c => c.UserId == userId, cancellationToken);
             if (customer == null)
                 return BadRequest("Customer profile not found. Please complete your registration.");
 
-            // Validate ServiceCategory
-            var category = await _context.ServiceCategories.FindAsync(dto.ServiceCategoryId);
+            var category = await _context.ServiceCategories.FindAsync(new object?[] { dto.ServiceCategoryId }, cancellationToken);
             if (category == null)
                 return BadRequest("Invalid service category.");
+
+            // One call does both: screen the post, and render it in English if it was not.
+            var triage = await _content.TriageAsync($"{dto.Title}\n\n{dto.Description}", "job posting", cancellationToken);
+            if (!triage.Allowed)
+                return BadRequest(new { message = triage.Reason });
 
             var job = new Job
             {
@@ -55,7 +78,7 @@ namespace ProConnect.WebAPI.Controllers
                 Description = dto.Description,
                 ImageUrl = dto.ImageUrl,
                 ServiceCategoryId = dto.ServiceCategoryId,
-                CustomerId = customer.Id, // CustomerProfile.Id (string)
+                CustomerId = customer.Id,
                 Location = dto.Location,
                 BudgetMin = dto.BudgetMin,
                 BudgetMax = dto.BudgetMax,
@@ -65,195 +88,235 @@ namespace ProConnect.WebAPI.Controllers
                 CreatedAt = DateTime.UtcNow
             };
 
+            // Post in Sinhala or Tamil and vendors still read it in English; the original is kept.
+            // The triage call above already did the translation, so this costs nothing extra.
+            if (!triage.IsEnglish && !string.IsNullOrWhiteSpace(triage.English))
+            {
+                job.OriginalDescription = dto.Description;
+                job.OriginalLanguage = triage.Language;
+
+                // Triage saw "title\n\ndescription"; keep only the description half.
+                var english = triage.English;
+                var split = english.IndexOf("\n\n", StringComparison.Ordinal);
+                job.Description = split >= 0 ? english[(split + 2)..].Trim() : english.Trim();
+            }
+
+            // Embedding powers semantic search. A null one just means this job won't match semantically.
+            job.Embedding = await _content.EmbedJobAsync(job.Title, job.Description, cancellationToken);
+
             _context.Jobs.Add(job);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
 
-            var notificationTitle = "New Job Posted";
-            var notificationMessage = $"New job posted: {job.Title} by {customer.User?.FullName ?? "Unknown"}";
-            var notificationActionUrl = $"/jobs/{job.Id}";
+            job.ServiceCategory = category;
+            await NotifyMatchedVendorsAsync(job, customer.User?.FullName ?? "A customer", cancellationToken);
 
-            var vendorUserIds = await _context.VendorProfiles.Select(v => v.UserId).ToListAsync();
-            var notifications = vendorUserIds.Select(id => new Notification
-            {
-                UserId = id,
-                Title = notificationTitle,
-                Message = notificationMessage,
-                ActionUrl = notificationActionUrl,
-                CreatedAt = DateTime.UtcNow,
-                IsRead = false
-            }).ToList();
-            _context.Notifications.AddRange(notifications);
-            await _context.SaveChangesAsync();
-
-            Console.WriteLine($"[SignalR] Broadcasting NewJobPosted for Job ID: {job.Id} to Vendors group");
-            
-            // Send the first notification DTO (all have same content except UserId)
-            var notificationDto = new NotificationDto
-            {
-                Id = notifications.FirstOrDefault()?.Id ?? 0,
-                Title = notificationTitle,
-                Message = notificationMessage,
-                ActionUrl = notificationActionUrl,
-                CreatedAt = DateTime.UtcNow,
-                IsRead = false
-            };
-            
-            await _hubContext.Clients.Group("Vendors").SendAsync("NewNotification", notificationDto);
-            Console.WriteLine("[SignalR] Broadcast NewNotification sent");
-
-            // Return the created job
-            var response = await MapToJobResponse(job);
-            return CreatedAtAction(nameof(GetJob), new { id = job.Id }, response);
+            var created = await LoadJobAsync(job.Id, cancellationToken);
+            var caller = await ResolveCallerAsync(cancellationToken);
+            return CreatedAtAction(nameof(GetJob), new { id = job.Id }, MapToJobResponse(created!, caller));
         }
 
         // GET: api/jobs
+        // Filter, sort and page the job board.
         [HttpGet]
-        public async Task<IActionResult> GetJobs([FromQuery] string? status = null, [FromQuery] int? categoryId = null)
+        public async Task<IActionResult> GetJobs([FromQuery] JobQueryDto query, CancellationToken cancellationToken)
         {
-            var query = _context.Jobs
-                .Include(j => j.ServiceCategory)
-                .Include(j => j.Customer)
-                .Include(j => j.Bids)
-                .AsQueryable();
+            var jobs = JobQuery();
 
-            // Filter by status if provided (default: only "Open" jobs)
-            if (!string.IsNullOrEmpty(status))
-                query = query.Where(j => j.Status == status);
-            else
-                query = query.Where(j => j.Status == "Open"); // Show open jobs by default
+            // "All" means every status; anything else filters; omitting it shows the open board.
+            if (string.IsNullOrWhiteSpace(query.Status))
+                jobs = jobs.Where(j => j.Status == "Open");
+            else if (!string.Equals(query.Status, "All", StringComparison.OrdinalIgnoreCase))
+                jobs = jobs.Where(j => j.Status == query.Status);
 
-            if (categoryId.HasValue)
-                query = query.Where(j => j.ServiceCategoryId == categoryId.Value);
+            if (query.CategoryId.HasValue)
+                jobs = jobs.Where(j => j.ServiceCategoryId == query.CategoryId.Value);
 
-            var jobs = await query
-                .OrderByDescending(j => j.CreatedAt)
-                .ToListAsync();
+            if (query.IsUrgent.HasValue)
+                jobs = jobs.Where(j => j.IsUrgent == query.IsUrgent.Value);
 
-            var responses = new List<JobResponseDto>();
-            foreach (var job in jobs)
-                responses.Add(await MapToJobResponse(job));
+            // A job matches the budget window if its range overlaps the requested one.
+            if (query.MinBudget.HasValue)
+                jobs = jobs.Where(j => j.BudgetMax >= query.MinBudget.Value);
 
-            return Ok(responses);
+            if (query.MaxBudget.HasValue)
+                jobs = jobs.Where(j => j.BudgetMin <= query.MaxBudget.Value);
+
+            if (!string.IsNullOrWhiteSpace(query.Location))
+            {
+                var location = $"%{Escape(query.Location)}%";
+                jobs = jobs.Where(j => j.Location != null && EF.Functions.Like(j.Location, location, EscapeChar));
+            }
+
+            // Semantic search ranks by meaning, so it replaces both the keyword filter and the sort.
+            if (query.Semantic && !string.IsNullOrWhiteSpace(query.Search))
+            {
+                var semantic = await SemanticSearchAsync(jobs, query, cancellationToken);
+                if (semantic != null)
+                {
+                    return Ok(semantic);
+                }
+                // The AI was unreachable: fall through to keyword search rather than returning nothing.
+            }
+
+            if (!string.IsNullOrWhiteSpace(query.Search))
+            {
+                var term = $"%{Escape(query.Search)}%";
+                jobs = jobs.Where(j =>
+                    EF.Functions.Like(j.Title, term, EscapeChar) ||
+                    EF.Functions.Like(j.Description, term, EscapeChar) ||
+                    (j.Location != null && EF.Functions.Like(j.Location, term, EscapeChar)));
+            }
+
+            jobs = query.SortBy?.ToLowerInvariant() switch
+            {
+                "oldest" => jobs.OrderBy(j => j.CreatedAt),
+                "budgethigh" => jobs.OrderByDescending(j => j.BudgetMax),
+                "budgetlow" => jobs.OrderBy(j => j.BudgetMin),
+                "mostbids" => jobs.OrderByDescending(j => j.Bids.Count).ThenByDescending(j => j.CreatedAt),
+                _ => jobs.OrderByDescending(j => j.IsUrgent).ThenByDescending(j => j.CreatedAt)
+            };
+
+            var totalCount = await jobs.CountAsync(cancellationToken);
+
+            var page = await jobs
+                .Skip((query.Page - 1) * query.PageSize)
+                .Take(query.PageSize)
+                .ToListAsync(cancellationToken);
+
+            var caller = await ResolveCallerAsync(cancellationToken);
+
+            return Ok(new PagedResult<JobResponseDto>
+            {
+                Items = page.Select(j => MapToJobResponse(j, caller)).ToList(),
+                Page = query.Page,
+                PageSize = query.PageSize,
+                TotalCount = totalCount
+            });
         }
 
         // GET: api/jobs/{id}
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetJob(int id)
+        public async Task<IActionResult> GetJob(int id, CancellationToken cancellationToken)
         {
-            var job = await _context.Jobs
-                .Include(j => j.ServiceCategory)
-                .Include(j => j.Customer)
-                .Include(j => j.AssignedVendor)
-                .Include(j => j.Bids)
-                .FirstOrDefaultAsync(j => j.Id == id);
-
+            var job = await LoadJobAsync(id, cancellationToken);
             if (job == null)
                 return NotFound("Job not found.");
 
-            var response = await MapToJobResponse(job);
-            return Ok(response);
+            var caller = await ResolveCallerAsync(cancellationToken);
+            return Ok(MapToJobResponse(job, caller));
         }
 
         // POST: api/Jobs/{jobId}/bids/{bidId}/accept
+        // Accepting a bid assigns the vendor AND opens the booking that carries the work to completion.
         [HttpPost("{jobId}/bids/{bidId}/accept")]
         [Authorize(Roles = "Customer")]
-        public async Task<IActionResult> AcceptBid(int jobId, int bidId)
+        public async Task<IActionResult> AcceptBid(int jobId, int bidId, CancellationToken cancellationToken)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
 
             var job = await _context.Jobs
                 .Include(j => j.Customer)
                 .Include(j => j.Bids)
-                .FirstOrDefaultAsync(j => j.Id == jobId);
-            
+                .Include(j => j.Booking)
+                .FirstOrDefaultAsync(j => j.Id == jobId, cancellationToken);
+
             if (job == null)
                 return NotFound("Job not found.");
 
-            // Verify the user owns this job
             if (job.Customer.UserId != userId)
-                return Forbid("You do not own this job.");
+                return Forbid();
 
-            // Verify job is still open
             if (job.Status != "Open")
-                return BadRequest("This job is no longer open for bids.");
+                return BadRequest(new { message = "This job is no longer open for bids." });
 
             var bid = await _context.JobBids
                 .Include(b => b.Vendor)
-                .FirstOrDefaultAsync(b => b.Id == bidId && b.JobId == jobId);
-            
+                .FirstOrDefaultAsync(b => b.Id == bidId && b.JobId == jobId, cancellationToken);
+
             if (bid == null)
                 return NotFound("Bid not found.");
 
             if (bid.Status != "Pending")
-                return BadRequest("This bid has already been processed.");
+                return BadRequest(new { message = "This bid has already been processed." });
 
-            // Accept the selected bid
             bid.Status = "Accepted";
-            
-            // Assign vendor to the job
             job.VendorProfileId = bid.VendorProfileId;
             job.Status = "Assigned";
-            
-            // Reject all other pending bids for this job
+
+            // Every other pending bid loses.
             var otherBids = await _context.JobBids
                 .Where(b => b.JobId == jobId && b.Id != bidId && b.Status == "Pending")
-                .ToListAsync();
-            
+                .ToListAsync(cancellationToken);
+
             foreach (var otherBid in otherBids)
-            {
                 otherBid.Status = "Rejected";
+
+            // The booking is the unit of work from here on: schedule, start, complete, review.
+            if (job.Booking == null)
+            {
+                _context.Bookings.Add(new Booking
+                {
+                    JobId = job.Id,
+                    CustomerId = job.CustomerId,
+                    VendorProfileId = bid.VendorProfileId,
+                    ScheduledDate = job.PreferredDate,
+                    Status = "Scheduled",
+                    TotalPrice = bid.BidAmount,
+                    IsPaid = false,
+                    CreatedAt = DateTime.UtcNow
+                });
             }
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
 
-            return Ok(new { message = "Bid accepted and vendor assigned successfully." });
+            await _notifications.NotifyUserAsync(
+                bid.Vendor.UserId,
+                "Bid Accepted",
+                $"Your bid on \"{job.Title}\" was accepted. The job is now booked.",
+                $"/jobs/{job.Id}",
+                cancellationToken);
+
+            return Ok(new { message = "Bid accepted, vendor assigned and booking created." });
         }
 
         // GET: api/Jobs/my-jobs
         [HttpGet("my-jobs")]
         [Authorize(Roles = "Customer")]
-        public async Task<IActionResult> GetMyJobs()
+        public async Task<IActionResult> GetMyJobs(CancellationToken cancellationToken)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
 
-            // Find the customer profile
             var customer = await _context.CustomerProfiles
-                .FirstOrDefaultAsync(c => c.UserId == userId);
-            
+                .FirstOrDefaultAsync(c => c.UserId == userId, cancellationToken);
+
             if (customer == null)
                 return NotFound("Customer profile not found.");
 
-            var jobs = await _context.Jobs
-                .Include(j => j.ServiceCategory)
-                .Include(j => j.Bids)
+            var jobs = await JobQuery()
                 .Where(j => j.CustomerId == customer.Id)
                 .OrderByDescending(j => j.CreatedAt)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
-            var responses = new List<JobResponseDto>();
-            foreach (var job in jobs)
-                responses.Add(await MapToJobResponse(job));
-
-            return Ok(responses);
+            var caller = await ResolveCallerAsync(cancellationToken);
+            return Ok(jobs.Select(j => MapToJobResponse(j, caller)).ToList());
         }
 
         // GET: api/Jobs/my-bids
         [HttpGet("my-bids")]
         [Authorize(Roles = "Vendor")]
-        public async Task<IActionResult> GetMyBids()
+        public async Task<IActionResult> GetMyBids(CancellationToken cancellationToken)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
 
-            // Find the vendor profile
             var vendor = await _context.VendorProfiles
-                .FirstOrDefaultAsync(v => v.UserId == userId);
-            
+                .FirstOrDefaultAsync(v => v.UserId == userId, cancellationToken);
+
             if (vendor == null)
                 return NotFound("Vendor profile not found.");
 
@@ -265,7 +328,7 @@ namespace ProConnect.WebAPI.Controllers
                         .ThenInclude(c => c.User)
                 .Where(b => b.VendorProfileId == vendor.Id)
                 .OrderByDescending(b => b.CreatedAt)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
             var responses = bids.Select(b => new
             {
@@ -287,67 +350,61 @@ namespace ProConnect.WebAPI.Controllers
         }
 
         // GET: api/Jobs/assigned
+        // Everything the vendor is on the hook for: assigned, in progress, and recently completed.
         [HttpGet("assigned")]
         [Authorize(Roles = "Vendor")]
-        public async Task<IActionResult> GetAssignedJobs()
+        public async Task<IActionResult> GetAssignedJobs(CancellationToken cancellationToken)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
 
             var vendor = await _context.VendorProfiles
-                .FirstOrDefaultAsync(v => v.UserId == userId);
-            
+                .FirstOrDefaultAsync(v => v.UserId == userId, cancellationToken);
+
             if (vendor == null)
                 return NotFound("Vendor profile not found.");
 
-            var jobs = await _context.Jobs
-                .Include(j => j.ServiceCategory)
-                .Include(j => j.Customer)
-                .Where(j => j.VendorProfileId == vendor.Id && j.Status == "Assigned")
+            var jobs = await JobQuery()
+                .Where(j => j.VendorProfileId == vendor.Id &&
+                            (j.Status == "Assigned" || j.Status == "InProgress" || j.Status == "Completed"))
                 .OrderByDescending(j => j.CreatedAt)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
-            var responses = new List<JobResponseDto>();
-            foreach (var job in jobs)
-                responses.Add(await MapToJobResponse(job));
-
-            return Ok(responses);
+            var caller = await ResolveCallerAsync(cancellationToken);
+            return Ok(jobs.Select(j => MapToJobResponse(j, caller)).ToList());
         }
 
         // POST: api/Jobs/{jobId}/bids/{bidId}/reject
         [HttpPost("{jobId}/bids/{bidId}/reject")]
         [Authorize(Roles = "Customer")]
-        public async Task<IActionResult> RejectBid(int jobId, int bidId)
+        public async Task<IActionResult> RejectBid(int jobId, int bidId, CancellationToken cancellationToken)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
 
             var job = await _context.Jobs
                 .Include(j => j.Customer)
-                .FirstOrDefaultAsync(j => j.Id == jobId);
-            
+                .FirstOrDefaultAsync(j => j.Id == jobId, cancellationToken);
+
             if (job == null)
                 return NotFound("Job not found.");
 
-            // Verify the user owns this job
             if (job.Customer.UserId != userId)
-                return Forbid("You do not own this job.");
+                return Forbid();
 
             var bid = await _context.JobBids
-                .FirstOrDefaultAsync(b => b.Id == bidId && b.JobId == jobId);
-            
+                .FirstOrDefaultAsync(b => b.Id == bidId && b.JobId == jobId, cancellationToken);
+
             if (bid == null)
                 return NotFound("Bid not found.");
 
             if (bid.Status != "Pending")
-                return BadRequest("This bid has already been processed.");
+                return BadRequest(new { message = "This bid has already been processed." });
 
-            // Reject the bid
             bid.Status = "Rejected";
-
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
 
             return Ok(new { message = "Bid rejected successfully." });
         }
@@ -355,32 +412,31 @@ namespace ProConnect.WebAPI.Controllers
         // POST: api/jobs/{id}/bids
         [HttpPost("{id}/bids")]
         [Authorize(Roles = "Vendor")] // Only vendors can bid
-        public async Task<IActionResult> PlaceBid(int id, [FromBody] CreateBidDto dto)
+        public async Task<IActionResult> PlaceBid(int id, [FromBody] CreateBidDto dto, CancellationToken cancellationToken)
         {
-            // Get logged-in user
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
 
-            // Find vendor profile
-            var vendor = await _context.VendorProfiles.FirstOrDefaultAsync(v => v.UserId == userId);
+            var vendor = await _context.VendorProfiles
+                .Include(v => v.User)
+                .FirstOrDefaultAsync(v => v.UserId == userId, cancellationToken);
             if (vendor == null)
                 return BadRequest("Vendor profile not found. Please complete your registration.");
 
-            // Find job
-            var job = await _context.Jobs.FindAsync(id);
+            var job = await _context.Jobs
+                .Include(j => j.Customer)
+                .FirstOrDefaultAsync(j => j.Id == id, cancellationToken);
             if (job == null)
                 return NotFound("Job not found.");
 
-            // Check if job is open
             if (job.Status != "Open")
-                return BadRequest("Job is no longer open for bids.");
+                return BadRequest(new { message = "Job is no longer open for bids." });
 
-            // Check if vendor already bid
             var existingBid = await _context.JobBids
-                .FirstOrDefaultAsync(b => b.JobId == id && b.VendorProfileId == vendor.Id);
+                .FirstOrDefaultAsync(b => b.JobId == id && b.VendorProfileId == vendor.Id, cancellationToken);
             if (existingBid != null)
-                return BadRequest("You have already placed a bid on this job.");
+                return BadRequest(new { message = "You have already placed a bid on this job." });
 
             var bid = new JobBid
             {
@@ -395,78 +451,41 @@ namespace ProConnect.WebAPI.Controllers
             };
 
             _context.JobBids.Add(bid);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
 
-            var jobWithCustomer = await _context.Jobs
-                .Include(j => j.Customer)
-                .FirstOrDefaultAsync(j => j.Id == id);
-
-            if (jobWithCustomer != null)
-            {
-                // Get the customer's UserId (the AspNetUsers Id)
-                var customerUserId = jobWithCustomer.Customer.UserId; // This is the Identity user Id
-                var vendorWithUser = await _context.VendorProfiles
-                    .Include(v => v.User)
-                    .FirstOrDefaultAsync(v => v.Id == vendor.Id);
-
-                var notification = new Notification
-                {
-                    UserId = customerUserId,
-                    Title = "New Bid Placed",
-                    Message = $"New bid on \"{jobWithCustomer.Title}\": ${bid.BidAmount} by {vendorWithUser?.User?.FullName ?? "A vendor"}",
-                    ActionUrl = $"/jobs/{jobWithCustomer.Id}",
-                    CreatedAt = DateTime.UtcNow,
-                    IsRead = false
-                };
-                _context.Notifications.Add(notification);
-                await _context.SaveChangesAsync();
-
-                Console.WriteLine($"[SignalR] Broadcasting NewNotification to Customer User ID: {customerUserId}");
-                var notificationDto = new NotificationDto
-                {
-                    Id = notification.Id,
-                    Title = notification.Title,
-                    Message = notification.Message,
-                    ActionUrl = notification.ActionUrl,
-                    CreatedAt = notification.CreatedAt,
-                    IsRead = notification.IsRead
-                };
-                await _hubContext.Clients.User(customerUserId).SendAsync("NewNotification", notificationDto);
-                Console.WriteLine("[SignalR] Broadcast NewNotification sent");
-            }
-            else 
-            {
-                Console.WriteLine("[SignalR] jobWithCustomer is null, cannot broadcast bid");
-            }
-
+            await _notifications.NotifyUserAsync(
+                job.Customer.UserId,
+                "New Bid Placed",
+                $"New bid on \"{job.Title}\": ${bid.BidAmount} by {vendor.User?.FullName ?? "A vendor"}",
+                $"/jobs/{job.Id}",
+                cancellationToken);
 
             return Ok(new { message = "Bid placed successfully.", bidId = bid.Id });
         }
 
         // GET: api/jobs/{id}/bids
         [HttpGet("{id}/bids")]
-        public async Task<IActionResult> GetBidsForJob(int id)
+        public async Task<IActionResult> GetBidsForJob(int id, CancellationToken cancellationToken)
         {
             var job = await _context.Jobs
                 .Include(j => j.Customer)
-                .FirstOrDefaultAsync(j => j.Id == id);
+                .FirstOrDefaultAsync(j => j.Id == id, cancellationToken);
 
             if (job == null)
                 return NotFound("Job not found.");
 
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
 
-            // Only allow the customer who owns the job to see bids
             if (job.Customer.UserId != userId)
-                return Forbid("You are not the owner of this job.");
+                return Forbid();
 
             var bids = await _context.JobBids
                 .Include(b => b.Vendor)
                     .ThenInclude(v => v.User)
                 .Where(b => b.JobId == id)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
             var response = bids.Select(b => new BidResponseDto
             {
@@ -483,21 +502,206 @@ namespace ProConnect.WebAPI.Controllers
             return Ok(response);
         }
 
-        // Helper method to map Job to JobResponseDto
-        private async Task<JobResponseDto> MapToJobResponse(Job job)
+        // GET: api/jobs/{id}/recommended-vendors
+        // The vendors the AI thinks fit this job, for the customer who posted it.
+        [HttpGet("{id}/recommended-vendors")]
+        [Authorize(Roles = "Customer")]
+        public async Task<IActionResult> GetRecommendedVendors(int id, CancellationToken cancellationToken)
         {
-            // Get customer name
-            var customerUser = await _userManager.FindByIdAsync(job.Customer.UserId);
-            var customerName = customerUser?.FullName ?? "Unknown";
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
 
-            // Get assigned vendor name if any
-            string? assignedVendorName = null;
-            if (job.AssignedVendor != null)
+            var job = await _context.Jobs
+                .Include(j => j.Customer)
+                .Include(j => j.ServiceCategory)
+                .FirstOrDefaultAsync(j => j.Id == id, cancellationToken);
+
+            if (job == null)
+                return NotFound(new { message = "Job not found." });
+
+            if (job.Customer.UserId != userId)
+                return Forbid();
+
+            var matches = await _matching.MatchAsync(job, VendorsToNotify, cancellationToken);
+            return Ok(matches);
+        }
+
+        // GET: api/jobs/{id}/rank-bids
+        // Weighs the bids on price, timeline, proposal and vendor reputation.
+        [HttpGet("{id}/rank-bids")]
+        [Authorize(Roles = "Customer")]
+        public async Task<IActionResult> RankBids(int id, CancellationToken cancellationToken)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            var job = await _context.Jobs
+                .Include(j => j.Customer)
+                .FirstOrDefaultAsync(j => j.Id == id, cancellationToken);
+
+            if (job == null)
+                return NotFound(new { message = "Job not found." });
+
+            if (job.Customer.UserId != userId)
+                return Forbid();
+
+            var bids = await _context.JobBids
+                .Include(b => b.Vendor)
+                .Where(b => b.JobId == id && b.Status == "Pending")
+                .ToListAsync(cancellationToken);
+
+            if (bids.Count == 0)
+                return BadRequest(new { message = "There are no open bids to compare yet." });
+
+            try
             {
-                var vendorUser = await _userManager.FindByIdAsync(job.AssignedVendor.UserId);
-                assignedVendorName = vendorUser?.FullName ?? "Unknown";
+                var ranking = await _aiService.RankBidsAsync(
+                    job.Title,
+                    job.Description,
+                    job.BudgetMin,
+                    job.BudgetMax,
+                    bids.Select(b => (
+                        b.Id,
+                        b.BidAmount,
+                        b.EstimatedDays,
+                        b.ProposalMessage,
+                        b.Vendor?.CompanyName ?? "Unknown",
+                        b.Vendor?.AverageRating ?? 0,
+                        b.Vendor?.TotalReviews ?? 0)).ToList(),
+                    cancellationToken);
+
+                return Ok(ranking);
+            }
+            catch (AiUnavailableException ex)
+            {
+                return StatusCode(StatusCodes.Status502BadGateway, new { message = ex.Message });
+            }
+        }
+
+        // ------------------------------------------------------------------ helpers
+
+        /// <summary>
+        /// Ranks the query against stored job embeddings in memory. SQLite has no vector type, and at
+        /// this scale a full scan is cheaper than the machinery a real vector store would need.
+        /// Returns null when the query could not be embedded, so the caller can fall back to keywords.
+        /// </summary>
+        private async Task<PagedResult<JobResponseDto>?> SemanticSearchAsync(
+            IQueryable<Job> filtered,
+            JobQueryDto query,
+            CancellationToken cancellationToken)
+        {
+            var queryVector = await _content.EmbedQueryAsync(query.Search!, cancellationToken);
+            if (queryVector == null)
+            {
+                return null;
             }
 
+            var candidates = await filtered
+                .Where(j => j.Embedding != null)
+                .ToListAsync(cancellationToken);
+
+            if (candidates.Count == 0)
+            {
+                return null; // nothing embedded yet — keyword search will do better than an empty list
+            }
+
+            var scored = candidates
+                .Select(job => new
+                {
+                    Job = job,
+                    Score = ContentAiService.Deserialize(job.Embedding) is { } vector
+                        ? AiService.CosineSimilarity(queryVector, vector)
+                        : 0
+                })
+                .Where(x => x.Score > SemanticMinimumScore)
+                .OrderByDescending(x => x.Score)
+                .ToList();
+
+            var caller = await ResolveCallerAsync(cancellationToken);
+
+            return new PagedResult<JobResponseDto>
+            {
+                Items = scored
+                    .Skip((query.Page - 1) * query.PageSize)
+                    .Take(query.PageSize)
+                    .Select(x => MapToJobResponse(x.Job, caller))
+                    .ToList(),
+                Page = query.Page,
+                PageSize = query.PageSize,
+                TotalCount = scored.Count
+            };
+        }
+
+        /// <summary>
+        /// Tells the vendors who actually fit, rather than blasting every vendor in the database.
+        /// Notification failure must never take the job posting down with it.
+        /// </summary>
+        private async Task NotifyMatchedVendorsAsync(Job job, string customerName, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var matches = await _matching.MatchAsync(job, VendorsToNotify, cancellationToken);
+                var userIds = await _matching.ResolveUserIdsAsync(matches, cancellationToken);
+
+                if (userIds.Count == 0)
+                {
+                    return;
+                }
+
+                var title = "Job Matched to You";
+                var message = $"New {job.ServiceCategory?.Name ?? "job"} job matches your skills: {job.Title} (posted by {customerName})";
+
+                foreach (var userId in userIds)
+                {
+                    await _notifications.NotifyUserAsync(userId, title, message, $"/jobs/{job.Id}", cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Could not notify matched vendors for job {JobId}.", job.Id);
+            }
+        }
+
+        /// <summary>Everything MapToJobResponse needs, loaded up front so we don't query per row.</summary>
+        private IQueryable<Job> JobQuery() =>
+            _context.Jobs
+                .Include(j => j.ServiceCategory)
+                .Include(j => j.Customer)
+                    .ThenInclude(c => c.User)
+                .Include(j => j.AssignedVendor)
+                    .ThenInclude(v => v!.User)
+                .Include(j => j.Bids)
+                .Include(j => j.Booking)
+                .Include(j => j.Review);
+
+        private Task<Job?> LoadJobAsync(int id, CancellationToken cancellationToken) =>
+            JobQuery().FirstOrDefaultAsync(j => j.Id == id, cancellationToken);
+
+        /// <summary>The caller's profile ids, so each job can say whether it belongs to them.</summary>
+        private async Task<(string? CustomerProfileId, string? VendorProfileId)> ResolveCallerAsync(
+            CancellationToken cancellationToken)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return (null, null);
+
+            var customerId = await _context.CustomerProfiles
+                .Where(c => c.UserId == userId)
+                .Select(c => c.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            var vendorId = await _context.VendorProfiles
+                .Where(v => v.UserId == userId)
+                .Select(v => v.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            return (customerId, vendorId);
+        }
+
+        private static JobResponseDto MapToJobResponse(Job job, (string? CustomerProfileId, string? VendorProfileId) caller)
+        {
             return new JobResponseDto
             {
                 Id = job.Id,
@@ -505,7 +709,8 @@ namespace ProConnect.WebAPI.Controllers
                 Description = job.Description,
                 ImageUrl = job.ImageUrl,
                 ServiceCategoryName = job.ServiceCategory?.Name ?? "Unknown",
-                CustomerName = customerName,
+                ServiceCategoryId = job.ServiceCategoryId,
+                CustomerName = job.Customer?.User?.FullName ?? "Unknown",
                 Location = job.Location,
                 BudgetMin = job.BudgetMin,
                 BudgetMax = job.BudgetMax,
@@ -513,9 +718,28 @@ namespace ProConnect.WebAPI.Controllers
                 IsUrgent = job.IsUrgent,
                 Status = job.Status,
                 CreatedAt = job.CreatedAt,
-                AssignedVendorName = assignedVendorName,
-                BidCount = job.Bids?.Count ?? 0
+                CompletedAt = job.CompletedAt,
+                AssignedVendorName = job.AssignedVendor?.User?.FullName,
+                AssignedVendorCompany = job.AssignedVendor?.CompanyName,
+                BidCount = job.Bids?.Count ?? 0,
+                IsOwner = caller.CustomerProfileId != null && job.CustomerId == caller.CustomerProfileId,
+                IsAssignedVendor = caller.VendorProfileId != null && job.VendorProfileId == caller.VendorProfileId,
+                BookingId = job.Booking?.Id,
+                BookingStatus = job.Booking?.Status,
+                HasReview = job.Review != null,
+                OriginalDescription = job.OriginalDescription,
+                OriginalLanguage = job.OriginalLanguage,
+                CompletionImageUrl = job.CompletionImageUrl,
+                CompletionVerdict = job.CompletionVerdict
             };
         }
+
+        /// <summary>Keeps a user's % or _ from acting as a LIKE wildcard (SQLite needs an ESCAPE clause).</summary>
+        private const string EscapeChar = "\\";
+
+        private static string Escape(string term) => term
+            .Replace("\\", "\\\\")
+            .Replace("%", "\\%")
+            .Replace("_", "\\_");
     }
 }

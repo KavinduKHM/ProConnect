@@ -325,6 +325,12 @@ namespace ProConnect.Infrastructure.Migrations
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("CompletionImageUrl")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CompletionVerdict")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
@@ -336,6 +342,9 @@ namespace ProConnect.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Embedding")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ImageUrl")
                         .HasColumnType("TEXT");
 
@@ -343,6 +352,12 @@ namespace ProConnect.Infrastructure.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Location")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OriginalDescription")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OriginalLanguage")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("PreferredDate")
@@ -619,6 +634,15 @@ namespace ProConnect.Infrastructure.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ProfilePictureUrl")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ReputationSummary")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ReputationSummaryReviewCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Skills")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("TotalReviews")

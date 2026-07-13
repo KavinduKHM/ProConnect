@@ -44,3 +44,46 @@ mat-card {
 mat-spinner {
   margin: 0 auto;
 }
+.reputation {
+  margin: 16px 0;
+}
+
+.rating-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rating-value {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.rating-count {
+  color: #777;
+  font-size: 14px;
+}
+
+.star-on {
+  color: #fbc02d;
+}
+
+.reputation-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  color: #444;
+  font-style: italic;
+}
+
+.reputation-summary mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: #7e57c2;
+}
+
+.no-reviews {
+  color: #777;
+}

@@ -1,11 +1,15 @@
+using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using ProConnect.Domain.Entities;
 using ProConnect.Infrastructure.Data;
+using ProConnect.WebAPI;
 using ProConnect.WebAPI.Hubs;
 using ProConnect.WebAPI.Services;
 
@@ -80,7 +84,40 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
-builder.Services.AddScoped<AiService>();
+builder.Services.AddHttpClient<AiService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(60); // image analysis can be slow
+});
+builder.Services.AddScoped<ImageStorageService>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<ContentAiService>();
+builder.Services.AddScoped<VendorMatchingService>();
+
+// Every AI call costs money, so cap what one user can spend. Keyed by user id, not IP:
+// the endpoints are all [Authorize], and a per-IP limit would punish users behind one NAT.
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy(RateLimitPolicies.Ai, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                          ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                          ?? "anonymous",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "application/json";
+        await context.HttpContext.Response.WriteAsync(
+            "{\"message\":\"You're using AI features too quickly. Give it a minute and try again.\"}",
+            cancellationToken);
+    };
+});
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -122,8 +159,10 @@ else
 }
 
 app.UseCors("AllowAngularDev");
+app.UseStaticFiles(); // serves the job photos written to wwwroot/uploads
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter(); // after auth: the AI limit partitions on the user id
 app.MapControllers();
 app.MapHub<NotificationHub>("/notificationHub");
 

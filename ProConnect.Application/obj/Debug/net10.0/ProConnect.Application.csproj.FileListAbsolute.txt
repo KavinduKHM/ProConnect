@@ -14,3 +14,12 @@ C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\obj\Debug\net10
 C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\obj\Debug\net10.0\refint\ProConnect.Application.dll
 C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\obj\Debug\net10.0\ProConnect.Application.pdb
 C:\Users\User\Documents\GitHub\ProConnect\ProConnect.Application\obj\Debug\net10.0\ref\ProConnect.Application.dll
+C:\Users\User\AppData\Local\Temp\claude\C--Users-User-Documents-GitHub-ProConnect\5b58c093-d354-4dab-abe8-6fc99d388e93\scratchpad\api\ProConnect.Application.deps.json
+C:\Users\User\AppData\Local\Temp\claude\C--Users-User-Documents-GitHub-ProConnect\5b58c093-d354-4dab-abe8-6fc99d388e93\scratchpad\api\ProConnect.Application.dll
+C:\Users\User\AppData\Local\Temp\claude\C--Users-User-Documents-GitHub-ProConnect\5b58c093-d354-4dab-abe8-6fc99d388e93\scratchpad\api\ProConnect.Application.pdb
+C:\Users\User\AppData\Local\Temp\claude\C--Users-User-Documents-GitHub-ProConnect\5b58c093-d354-4dab-abe8-6fc99d388e93\scratchpad\api2\ProConnect.Application.deps.json
+C:\Users\User\AppData\Local\Temp\claude\C--Users-User-Documents-GitHub-ProConnect\5b58c093-d354-4dab-abe8-6fc99d388e93\scratchpad\api2\ProConnect.Application.dll
+C:\Users\User\AppData\Local\Temp\claude\C--Users-User-Documents-GitHub-ProConnect\5b58c093-d354-4dab-abe8-6fc99d388e93\scratchpad\api2\ProConnect.Application.pdb
+C:\Users\User\AppData\Local\Temp\claude\C--Users-User-Documents-GitHub-ProConnect\5b58c093-d354-4dab-abe8-6fc99d388e93\scratchpad\api3\ProConnect.Application.deps.json
+C:\Users\User\AppData\Local\Temp\claude\C--Users-User-Documents-GitHub-ProConnect\5b58c093-d354-4dab-abe8-6fc99d388e93\scratchpad\api3\ProConnect.Application.dll
+C:\Users\User\AppData\Local\Temp\claude\C--Users-User-Documents-GitHub-ProConnect\5b58c093-d354-4dab-abe8-6fc99d388e93\scratchpad\api3\ProConnect.Application.pdb

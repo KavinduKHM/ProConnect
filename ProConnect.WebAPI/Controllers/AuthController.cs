@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using ProConnect.Domain.Entities;
 using ProConnect.Infrastructure.Data;
 using ProConnect.WebAPI.Helpers;
@@ -37,6 +38,12 @@ namespace ProConnect.WebAPI.Controllers
             public string? CompanyName { get; set; } // Required for Vendor
             public string? PhoneNumber { get; set; }
             public string? Address { get; set; }
+
+            /// <summary>Vendor only: free-text skills, e.g. "leak repair, pipe fitting". Drives job matching.</summary>
+            public string? Skills { get; set; }
+
+            /// <summary>Vendor only: the service categories they work in. Drives job matching.</summary>
+            public List<int>? ServiceCategoryIds { get; set; }
         }
 
         public class LoginModel
@@ -98,10 +105,24 @@ namespace ProConnect.WebAPI.Controllers
                     CompanyName = model.CompanyName,
                     PhoneNumber = model.PhoneNumber,
                     Address = model.Address,
+                    Skills = model.Skills,
                     IsVerified = false,
                     IsAvailable = true,
                     CreatedAt = DateTime.UtcNow
                 };
+
+                // The categories a vendor works in are what job matching filters on first.
+                if (model.ServiceCategoryIds is { Count: > 0 })
+                {
+                    var categories = await _context.ServiceCategories
+                        .Where(c => model.ServiceCategoryIds.Contains(c.Id))
+                        .ToListAsync();
+
+                    foreach (var serviceCategory in categories)
+                    {
+                        vendorProfile.ServiceCategories.Add(serviceCategory);
+                    }
+                }
 
                 _context.VendorProfiles.Add(vendorProfile);
                 await _context.SaveChangesAsync();

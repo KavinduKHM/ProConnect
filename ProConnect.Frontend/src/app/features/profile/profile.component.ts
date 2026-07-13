@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -11,8 +12,15 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { ProfileService, FullProfileResponse } from '../../core/services/profile.service';
 import { AuthService } from '../../core/services/auth.service';
+import { environment } from '../../../environments/environment';
+
+interface ServiceCategory {
+  id: number;
+  name: string;
+}
 
 @Component({
   selector: 'app-profile',
@@ -29,7 +37,8 @@ import { AuthService } from '../../core/services/auth.service';
     MatProgressSpinnerModule,
     MatSlideToggleModule,
     MatDividerModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatSelectModule
   ],
   templateUrl: './profile.component.html',
   styleUrls: ['./profile.component.css']
@@ -40,13 +49,15 @@ export class ProfileComponent implements OnInit {
   isSaving = false;
   isVendor = false;
   profileData: FullProfileResponse | null = null;
+  categories: ServiceCategory[] = [];
 
   constructor(
     private fb: FormBuilder,
     private profileService: ProfileService,
     private authService: AuthService,
     private snackBar: MatSnackBar,
-    private router: Router
+    private router: Router,
+    private http: HttpClient
   ) {
     this.profileForm = this.fb.group({
       fullName: ['', [Validators.required]],
@@ -55,12 +66,18 @@ export class ProfileComponent implements OnInit {
       companyName: [''],
       description: [''],
       website: [''],
-      isAvailable: [false]
+      isAvailable: [false],
+      skills: [''],
+      serviceCategoryIds: [[]]
     });
   }
 
   ngOnInit(): void {
     this.loadProfile();
+    this.http.get<ServiceCategory[]>(`${environment.apiUrl}/ServiceCategories`).subscribe({
+      next: (categories) => (this.categories = categories),
+      error: (err) => console.error('Failed to load service categories', err)
+    });
   }
 
   loadProfile(): void {
@@ -80,7 +97,9 @@ export class ProfileComponent implements OnInit {
             companyName: data.vendor.companyName || '',
             description: data.vendor.description || '',
             website: data.vendor.website || '',
-            isAvailable: data.vendor.isAvailable
+            isAvailable: data.vendor.isAvailable,
+            skills: data.vendor.skills || '',
+            serviceCategoryIds: data.vendor.serviceCategoryIds || []
           });
         }
         this.isLoading = false;
@@ -111,6 +130,8 @@ export class ProfileComponent implements OnInit {
       payload.description = formValue.description;
       payload.website = formValue.website;
       payload.isAvailable = formValue.isAvailable;
+      payload.skills = formValue.skills;
+      payload.serviceCategoryIds = formValue.serviceCategoryIds;
     }
 
     this.profileService.updateProfile(payload).subscribe({
